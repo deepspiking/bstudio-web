@@ -246,6 +246,7 @@ export default function OralTractLive() {
   const [error, setError] = useState<string | null>(null)
   const [inputDb, setInputDb] = useState<number | null>(null)
   const [inferCount, setInferCount] = useState(0)
+  const [postedCount, setPostedCount] = useState(0)
   const [lastCoord, setLastCoord] = useState<string>('')
   const [modelStatus, setModelStatus] = useState('')
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
@@ -531,11 +532,13 @@ export default function OralTractLive() {
       setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
       setInputDb(null)
       setInferCount(0)
+      setPostedCount(0)
       setLastCoord('')
       const worker = new Worker(new URL('../enc.worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
       let ready = false
       let busy = false
+      let busySince = 0
       let sentChunk = 0
       let chunkNo = 0
       const ringF: number[] = []
@@ -601,12 +604,18 @@ export default function OralTractLive() {
         const rms = Math.sqrt(sum / i16.length)
         const db = 20 * Math.log10(Math.max(rms, 1e-6))
         setInputDb(Math.round(db))
+        if (busy && performance.now() - busySince > 4000) {
+          busy = false
+          setModelStatus('추론 응답 지연 — 재시도 중')
+        }
         if (ready && !busy && ringF.length >= SAMPLE_RATE) {
           const win = new Float32Array(SAMPLE_RATE)
           const off = ringF.length - SAMPLE_RATE
           for (let i = 0; i < SAMPLE_RATE; i++) win[i] = ringF[off + i]
           busy = true
+          busySince = performance.now()
           sentChunk = chunkNo
+          setPostedCount((c) => c + 1)
           worker.postMessage({ type: 'infer', pcm: win }, [win.buffer])
         }
       }
@@ -716,7 +725,7 @@ export default function OralTractLive() {
               </p>
             )}
             <p className="hint" style={{ position: 'absolute', left: 12, top: 62 }}>
-              추론 {inferCount}회{lastCoord ? ` · 좌표 ${lastCoord}` : ''}
+              전송 {postedCount} · 응답 {inferCount} · 좌표 {lastCoord || '-'}
             </p>
           </>
         )}
