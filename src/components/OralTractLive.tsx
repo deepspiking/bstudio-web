@@ -38,6 +38,8 @@ const FIG_SCALE = 0.5
 const X_BIAS = 0.12
 // EPD(발성/무음 판정) 게이트 — 이 dBFS 이상의 프레임만 발성으로 본다
 const EPD_DBFS = -50
+// 자동 캡처 종료 조건: 이 이상 큰 프레임(실제 발성)이 한 번이라도 있어야 한다
+const LOUD_DBFS = -40
 // x값을 이 비율로 가로 압축해 표시 — 펄스(점)가 움직이는 폭을 1/3로 좁힌다
 const X_COMPRESS = 3
 const PULSE_R = 30
@@ -243,6 +245,7 @@ export default function OralTractLive() {
   const [active, setActive] = useState(-1)
   const [playTime, setPlayTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [inputDb, setInputDb] = useState<number | null>(null)
   const [modelStatus, setModelStatus] = useState('')
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
@@ -523,8 +526,9 @@ export default function OralTractLive() {
       await ctx.audioWorklet.addModule(url)
       URL.revokeObjectURL(url)
 
-      setPhase('live')
-      setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
+    setPhase('live')
+    setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
+    setInputDb(null)
       const worker = new Worker(new URL('../enc.worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
       let ready = false
@@ -533,6 +537,7 @@ export default function OralTractLive() {
       let chunkNo = 0
       const ringF: number[] = []
       const recentDb: number[] = []
+      let hasLoud = false
 
       worker.onmessage = (ev) => {
         const data = ev.data
@@ -591,15 +596,17 @@ export default function OralTractLive() {
         const db = 20 * Math.log10(Math.max(rms, 1e-6))
         recentDb.push(db)
         if (recentDb.length > 10) recentDb.shift()
+        setInputDb(Math.round(db))
         const quiet = db < EPD_DBFS
         if (quiet) cap.idleRun += 1
         else {
           cap.idleRun = 0
           cap.speech += 1
         }
+        if (db >= LOUD_DBFS) hasLoud = true
         const speechOk = cap.speech * (HOP_MS / 1000) >= MIN_SPEECH_SEC
         const idleOk = cap.idleRun * (HOP_MS / 1000) >= SILENCE_MS / 1000
-        if (speechOk && idleOk && phaseRef.current === 'live') {
+        if (speechOk && idleOk && hasLoud && phaseRef.current === 'live') {
           stopLive(true)
           return
         }
@@ -711,6 +718,12 @@ export default function OralTractLive() {
             {modelStatus && (
               <p className="hint" style={{ position: 'absolute', left: 12, top: 26 }}>
                 {modelStatus}
+              </p>
+            )}
+            {inputDb != null && (
+              <p className="hint" style={{ position: 'absolute', left: 12, top: 44 }}>
+                입력 {inputDb} dBFS
+                {inputDb < LOUD_DBFS && ' (조용함)'}
               </p>
             )}
           </>
