@@ -24,8 +24,14 @@ const VIEW = 'ecapa/lang2d'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
+const PAD_Y = 14
 const FIG_W = 250
 const FIG_H = 580
+const FIG_X0 = 12
+const FIG_Y0 = 12
+// 거울 변환까지 적용한 vocal-tract.svg 안 구강(입) 중심 좌표 (파일 좌표)
+const MOUTH_X = 150
+const MOUTH_Y = 165
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
 const FIG_SCALE = 0.5
 // x축 표시 중심을 + 방향으로 옮기는 정도 (플롯 폭 대비)
@@ -271,11 +277,13 @@ export default function OralTractLive() {
       const plotW = Math.max(120, w - PAD_X * 2)
       const bw = Math.max(90, plotW * FIG_SCALE)
       const s = bw / FIG_W
-      const win = Math.min(FIG_H, h / s)
-      const yA = Math.max(0, Math.min(90, FIG_H - win))
+      const ph = Math.max(60, h - PAD_Y * 2)
+      const zeroPx = PAD_X + 0.5 * plotW + plotW * X_BIAS
+      const zeroY = PAD_Y + 0.5 * ph
       setImgBox({
-        left: Math.round(PAD_X + (plotW - bw) / 2),
-        top: Math.round(-yA * s),
+        // 구강 중심이 x축 0(축 중심)과 캔버스 세로 중앙에 오도록 배치
+        left: Math.round(zeroPx - (MOUTH_X - FIG_X0) * s),
+        top: Math.round(zeroY - (MOUTH_Y - FIG_Y0) * s),
         width: Math.round(bw),
         height: Math.round(FIG_H * s),
       })
@@ -303,7 +311,7 @@ export default function OralTractLive() {
     ctx.clearRect(0, 0, w, h)
     const now = performance.now()
 
-    const padY = 14
+    const padY = PAD_Y
     const pw = w - PAD_X * 2
     const ph = h - padY * 2
     const sx = (x: number) =>
