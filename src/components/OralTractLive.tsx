@@ -98,6 +98,7 @@ function hueOf(v: number): number {
 
 /** 공명 표시 — 퍼지는 그라데이션 동심원. +일수록 파랑, −일수록 빨강 */
 function drawPulse(ctx: CanvasRenderingContext2D, x: number, y: number, v: number, now: number) {
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(v)) return
   const h = hueOf(v)
   const breathe = 1 + 0.08 * Math.sin(now / 420)
   const R = PULSE_R * breathe
@@ -244,6 +245,8 @@ export default function OralTractLive() {
   const [playTime, setPlayTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [inputDb, setInputDb] = useState<number | null>(null)
+  const [inferCount, setInferCount] = useState(0)
+  const [lastCoord, setLastCoord] = useState<string>('')
   const [modelStatus, setModelStatus] = useState('')
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
@@ -527,6 +530,8 @@ export default function OralTractLive() {
       setPhase('live')
       setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
       setInputDb(null)
+      setInferCount(0)
+      setLastCoord('')
       const worker = new Worker(new URL('../enc.worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
       let ready = false
@@ -557,9 +562,13 @@ export default function OralTractLive() {
             cap.frames.push(f)
             liveRef.current.x = px
             liveRef.current.y = py
-            liveRef.current.on = true
-            liveRef.current.trail.push(f)
-            if (liveRef.current.trail.length > 60) liveRef.current.trail.shift()
+            liveRef.current.on = Number.isFinite(px) && Number.isFinite(py)
+            if (liveRef.current.on) {
+              liveRef.current.trail.push(f)
+              if (liveRef.current.trail.length > 60) liveRef.current.trail.shift()
+            }
+            setInferCount((c) => c + 1)
+            setLastCoord(`${px.toFixed(2)}, ${py.toFixed(2)}`)
           }
         }
       }
@@ -706,6 +715,9 @@ export default function OralTractLive() {
                 {inputDb < LOUD_DBFS && ' (조용함)'}
               </p>
             )}
+            <p className="hint" style={{ position: 'absolute', left: 12, top: 62 }}>
+              추론 {inferCount}회{lastCoord ? ` · 좌표 ${lastCoord}` : ''}
+            </p>
           </>
         )}
       </div>
