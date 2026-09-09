@@ -7,6 +7,7 @@
  * 그 외 구간은 보간하지 않는다. 줄을 클릭하면 그 위치부터 재생된다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { projectLang } from '../lang2d_proj'
 
 interface Frame {
   t: number
@@ -20,7 +21,6 @@ interface Capture {
 }
 
 const SAMPLE_RATE = 16000
-const VIEW = 'ecapa/lang2d'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
@@ -243,6 +243,7 @@ export default function OralTractLive() {
   const [active, setActive] = useState(-1)
   const [playTime, setPlayTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [modelStatus, setModelStatus] = useState('')
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   const listRef = useRef<Capture[]>([])
@@ -257,7 +258,7 @@ export default function OralTractLive() {
     idleRun: 0,
     speech: 0,
   })
-  const wsRef = useRef<WebSocket | null>(null)
+  const workerRef = useRef<Worker | null>(null)
   const micCtxRef = useRef<AudioContext | null>(null)
   const playCtxRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -442,8 +443,8 @@ export default function OralTractLive() {
 
   const stopLive = useCallback(
     (keep: boolean) => {
-      wsRef.current?.close()
-      wsRef.current = null
+      workerRef.current?.terminate()
+      workerRef.current = null
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
       void micCtxRef.current?.close()
@@ -522,53 +523,46 @@ export default function OralTractLive() {
       await ctx.audioWorklet.addModule(url)
       URL.revokeObjectURL(url)
 
-      const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/live`)
-      ws.binaryType = 'arraybuffer'
-      wsRef.current = ws
-      await new Promise<void>((resolve, reject) => {
-        ws.onopen = () => resolve()
-        ws.onerror = () => reject(new Error('연결 실패 — live 서버가 떠 있는지 확인하세요'))
-      })
-      ws.send(
-        JSON.stringify({
-          encoder: 'ecapa',
-          windowSec: 1,
-          hopMs: HOP_MS,
-          gateDbfs: EPD_DBFS,
-          minWindowSpeech: 0.5,
-        }),
-      )
       setPhase('live')
+      setModelStatus('모델 로드 중…')
+      const worker = new Worker(new URL('./enc.worker.ts', import.meta.url), { type: 'module' })
+      workerRef.current = worker
+      let ready = false
+      let busy = false
+      let sentChunk = 0
+      let chunkNo = 0
+      const ringF: number[] = []
+      const recentDb: number[] = []
 
-      ws.onmessage = (ev) => {
-        const msg = JSON.parse(ev.data as string)
-        if (msg.type === 'ready') return
-        const cap = capRef.current
-        const quiet = (msg.chunk_dbfs ?? msg.rms_dbfs ?? 0) < EPD_DBFS
-        if (msg.type === 'point') {
-          const c = msg.coords?.[VIEW]
-          if (c) {
-            const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: c[1] }
+      worker.onmessage = (ev) => {
+        const data = ev.data
+        if (data && data.type === 'ready') {
+          ready = true
+          setModelStatus('모델 로드됨 — 듣는 중')
+          return
+        }
+        if (data && data.type === 'error') {
+          setModelStatus(`추론 오류: ${data.message}`)
+          return
+        }
+        if (data && data.type === 'emb' && busy) {
+          busy = false
+          const emb = data.emb as Float32Array
+          if (emb.length >= 192) {
+            const [px, py] = projectLang(emb)
+            const cap = capRef.current
+            const f: Frame = { t: sentChunk * (HOP_MS / 1000), x: px, y: py }
             cap.frames.push(f)
-            liveRef.current.x = c[0]
-            liveRef.current.y = c[1]
+            liveRef.current.x = px
+            liveRef.current.y = py
             liveRef.current.on = true
             liveRef.current.trail.push(f)
             if (liveRef.current.trail.length > 60) liveRef.current.trail.shift()
           }
         }
-        if (quiet) cap.idleRun += 1
-        else {
-          cap.idleRun = 0
-          cap.speech += 1
-        }
-        const speechOk = cap.speech * (HOP_MS / 1000) >= MIN_SPEECH_SEC
-        const idleOk = cap.idleRun * (HOP_MS / 1000) >= SILENCE_MS / 1000
-        if (speechOk && idleOk && phaseRef.current === 'live') stopLive(true)
       }
-      ws.onclose = () => {
-        if (phaseRef.current === 'live') stopLive(false)
-      }
+      worker.onerror = () => setModelStatus('모델 워커 오류')
+      worker.postMessage({ type: 'load' })
 
       const src = ctx.createMediaStreamSource(stream)
       const node = new AudioWorkletNode(ctx, 'mic-processor', {
@@ -576,13 +570,49 @@ export default function OralTractLive() {
       })
       node.port.onmessage = (e) => {
         const buf = e.data as ArrayBuffer
+        const i16 = new Int16Array(buf)
         const cap = capRef.current
-        cap.pcm.push(new Int16Array(buf.slice(0)))
+        cap.pcm.push(new Int16Array(i16.slice(0)))
         if (cap.pcm.length > KEEP_CHUNKS) {
           cap.base += cap.pcm.length - KEEP_CHUNKS
           cap.pcm.splice(0, cap.pcm.length - KEEP_CHUNKS)
         }
-        if (ws.readyState === WebSocket.OPEN) ws.send(buf)
+        for (let i = 0; i < i16.length; i++) ringF.push(i16[i] / 32768)
+        const keepN = SAMPLE_RATE + i16.length * 2
+        if (ringF.length > keepN) ringF.splice(0, ringF.length - keepN)
+
+        chunkNo += 1
+        let sum = 0
+        for (let i = 0; i < i16.length; i++) {
+          const v = i16[i] / 32768
+          sum += v * v
+        }
+        const rms = Math.sqrt(sum / i16.length)
+        const db = 20 * Math.log10(Math.max(rms, 1e-6))
+        recentDb.push(db)
+        if (recentDb.length > 10) recentDb.shift()
+        const quiet = db < EPD_DBFS
+        if (quiet) cap.idleRun += 1
+        else {
+          cap.idleRun = 0
+          cap.speech += 1
+        }
+        const speechOk = cap.speech * (HOP_MS / 1000) >= MIN_SPEECH_SEC
+        const idleOk = cap.idleRun * (HOP_MS / 1000) >= SILENCE_MS / 1000
+        if (speechOk && idleOk && phaseRef.current === 'live') {
+          stopLive(true)
+          return
+        }
+        const loud = recentDb.filter((v) => v >= EPD_DBFS).length
+        const frac = recentDb.length ? loud / recentDb.length : 0
+        if (!quiet && frac >= 0.5 && ready && !busy && ringF.length >= SAMPLE_RATE) {
+          const win = new Float32Array(SAMPLE_RATE)
+          const off = ringF.length - SAMPLE_RATE
+          for (let i = 0; i < SAMPLE_RATE; i++) win[i] = ringF[off + i]
+          busy = true
+          sentChunk = chunkNo
+          worker.postMessage({ type: 'infer', pcm: win }, [win.buffer])
+        }
       }
       src.connect(node)
       node.connect(ctx.createGain()).connect(ctx.destination)
@@ -596,7 +626,7 @@ export default function OralTractLive() {
     () => () => {
       cancelAnimationFrame(rafRef.current)
       cancelAnimationFrame(playRafRef.current)
-      wsRef.current?.close()
+      workerRef.current?.terminate()
       streamRef.current?.getTracks().forEach((t) => t.stop())
       void micCtxRef.current?.close()
       void playCtxRef.current?.close()
@@ -678,6 +708,11 @@ export default function OralTractLive() {
             <p className="hint" style={{ position: 'absolute', left: 12, top: 8 }}>
               듣는 중 — 말을 마치고 잠시 쉬면 자동 저장됩니다
             </p>
+            {modelStatus && (
+              <p className="hint" style={{ position: 'absolute', left: 12, top: 26 }}>
+                {modelStatus}
+              </p>
+            )}
           </>
         )}
       </div>

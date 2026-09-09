@@ -3,3 +3,5 @@ dist
 certs
 *.local
 .DS_Store
+
+public/models
