@@ -1,22 +1,24 @@
 /// <reference lib="webworker" />
-// 브라우저 on-device 추론: JS log-mel → ECAPA 코어(정규화+ECAPA) ONNX → 192차원 임베딩.
-// log-mel은 onnxruntime-web에 없는 STFT를 피하기 위해 JS로 직접 계산한다(mel.ts).
-import * as ort from 'onnxruntime-web'
+// 브라우저 on-device 추론: JS log-mel(mel.ts) → ECAPA 코어 ONNX → 192차원 임베딩.
 import { audioToMel } from './mel'
 
 const MODEL_URL = '/models/ecapa_core.onnx'
-let session: ort.InferenceSession | null = null
 
-ort.env.wasm.wasmPaths = `${self.location.origin}/models/`
-ort.env.wasm.numThreads = 1
+let session: Awaited<ReturnType<typeof makeSession>> | null = null
 
-async function load() {
-  if (!session) {
-    session = await ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all',
-    })
-  }
+async function makeSession() {
+  const ort = await import('onnxruntime-web')
+  ort.env.wasm.wasmPaths = `${self.location.origin}/models/`
+  ort.env.wasm.numThreads = 1
+  const sess = await ort.InferenceSession.create(MODEL_URL, {
+    executionProviders: ['wasm'],
+    graphOptimizationLevel: 'all',
+  })
+  return { ort, sess }
+}
+
+async function getSession() {
+  if (!session) session = await makeSession()
   return session
 }
 
@@ -24,14 +26,13 @@ self.onmessage = async (e: MessageEvent) => {
   try {
     const data = e.data
     if (data && data.type === 'load') {
-      await load()
+      await getSession()
       self.postMessage({ type: 'ready' })
       return
     }
     if (data && data.type === 'infer' && data.pcm) {
-      const sess = await load()
-      const pcm = data.pcm as Float32Array
-      const feats = audioToMel(pcm)
+      const { ort, sess } = await getSession()
+      const feats = audioToMel(data.pcm as Float32Array)
       const feeds = { feats: new ort.Tensor('float32', feats, [1, 101, 80]) }
       const out = await sess.run(feeds)
       const emb = out.emb.data as Float32Array

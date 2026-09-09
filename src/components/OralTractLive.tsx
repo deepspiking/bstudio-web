@@ -525,7 +525,7 @@ export default function OralTractLive() {
 
       setPhase('live')
       setModelStatus('모델 로드 중…')
-      const worker = new Worker(new URL('./enc.worker.ts', import.meta.url), { type: 'module' })
+      const worker = new Worker(new URL('../enc.worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
       let ready = false
       let busy = false
