@@ -524,7 +524,7 @@ export default function OralTractLive() {
       URL.revokeObjectURL(url)
 
       setPhase('live')
-      setModelStatus('모델 로드 중…')
+      setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
       const worker = new Worker(new URL('../enc.worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
       let ready = false

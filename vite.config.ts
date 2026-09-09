@@ -19,7 +19,20 @@ function httpsOption() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'cache-models',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.startsWith('/models/')) {
+            res.setHeader('Cache-Control', 'public, max-age=86400')
+          }
+          next()
+        })
+      },
+    },
+  ],
   optimizeDeps: {
     include: ['onnxruntime-web'],
   },
