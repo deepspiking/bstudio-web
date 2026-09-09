@@ -532,7 +532,7 @@ export default function OralTractLive() {
       ws.send(
         JSON.stringify({
           encoder: 'ecapa',
-          windowSec: 1,
+          windowSec: 0.3,
           hopMs: HOP_MS,
           gateDbfs: EPD_DBFS,
           minWindowSpeech: 0.5,
