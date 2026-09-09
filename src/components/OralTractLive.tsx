@@ -37,7 +37,7 @@ const FIG_SCALE = 0.5
 // x축 표시 중심을 + 방향으로 옮기는 정도 (플롯 폭 대비)
 const X_BIAS = 0.12
 // EPD(발성/무음 판정) 게이트 — 이 dBFS 이상의 프레임만 발성으로 본다
-const EPD_DBFS = -30
+const EPD_DBFS = -40
 // x값을 이 비율로 가로 압축해 표시 — 펄스(점)가 움직이는 폭을 1/3로 좁힌다
 const X_COMPRESS = 3
 const PULSE_R = 30
