@@ -270,6 +270,7 @@ export default function OralTractLive() {
   const rafRef = useRef(0)
   const playRafRef = useRef(0)
   const playSrcRef = useRef<AudioBufferSourceNode | null>(null)
+  const loadTimerRef = useRef<number | null>(null)
   const phaseRef = useRef(phase)
   phaseRef.current = phase
 
@@ -450,6 +451,10 @@ export default function OralTractLive() {
     (keep: boolean) => {
       workerRef.current?.terminate()
       workerRef.current = null
+      if (loadTimerRef.current != null) {
+        clearInterval(loadTimerRef.current)
+        loadTimerRef.current = null
+      }
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
       void micCtxRef.current?.close()
@@ -542,11 +547,20 @@ export default function OralTractLive() {
       let sentChunk = 0
       let chunkNo = 0
       const ringF: number[] = []
+      const t0ms = Date.now()
+      loadTimerRef.current = window.setInterval(() => {
+        if (ready) return
+        setModelStatus(`모델 로드 중… ${Math.floor((Date.now() - t0ms) / 1000)}s (최초 84MB)`)
+      }, 1000)
 
       worker.onmessage = (ev) => {
         const data = ev.data
         if (data && data.type === 'ready') {
           ready = true
+          if (loadTimerRef.current != null) {
+            clearInterval(loadTimerRef.current)
+            loadTimerRef.current = null
+          }
           setModelStatus('모델 로드됨 — 듣는 중')
           return
         }
@@ -622,6 +636,10 @@ export default function OralTractLive() {
       src.connect(node)
       node.connect(ctx.createGain()).connect(ctx.destination)
     } catch (e) {
+      if (loadTimerRef.current != null) {
+        clearInterval(loadTimerRef.current)
+        loadTimerRef.current = null
+      }
       setError(e instanceof Error ? e.message : String(e))
       stopLive(false)
     }
