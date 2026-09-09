@@ -6,9 +6,10 @@ ecapa 화자 임베딩을 LDA로 x축(+/−)에 나눈 실시간 2D 화면의 �
 
 - **추론은 전부 브라우저에서**: ECAPA(log-mel+norm 포함)를 ONNX로 export해
   Web Worker(onnxruntime-web)가 1초 창마다 임베딩 → 로컬에서 선형 투영.
-  별도 live 서버가 필요 없다. (모델 export: `scripts/export_ecapa.py`)
+  별도 live 서버가 필요 없다. (모델 export: `scripts/export_ecapa_core.py`)
 - 모델·wasm은 저장소에 포함하지 않는다 — `public/models/`에 직접 두어야 한다:
-  `ecapa_core.onnx`(약 84MB)와 `ort-wasm-simd-threaded.wasm`.
+  `ecapa_core.onnx`(약 84MB), `ort-wasm-simd-threaded.jsep.mjs`, `ort-wasm-simd-threaded.jsep.wasm`.
+  (모델 export: `scripts/export_ecapa_core.py`, log-mel은 JS에서 계산)
 - 배경 그림: `public/vocal-tract.svg`
 - 마이크는 secure context가 필요 → `HTTPS=1 npm run dev` (인증서 경로는
   `CERT_DIR` 환경변수로 지정, 기본은 이 머신의 공유 인증서).
