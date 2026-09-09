@@ -20,6 +20,9 @@ function httpsOption() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ['onnxruntime-web'],
+  },
   server: {
     allowedHosts: ['chr747.iptime.org', 'localhost'],
     https: httpsOption(),
