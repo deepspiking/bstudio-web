@@ -561,7 +561,7 @@ export default function OralTractLive() {
           }
         }
       }
-      worker.onerror = () => setModelStatus('모델 워커 오류')
+      worker.onerror = (e) => setModelStatus(`모델 워커 오류: ${e.message}`)
       worker.postMessage({ type: 'load' })
 
       const src = ctx.createMediaStreamSource(stream)
