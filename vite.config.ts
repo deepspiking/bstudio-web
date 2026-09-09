@@ -26,6 +26,11 @@ export default defineConfig({
   server: {
     allowedHosts: ['chr747.iptime.org', 'localhost'],
     https: httpsOption(),
+    headers: {
+      // onnxruntime-web threaded wasm가 SharedArrayBuffer를 쓰려면 필요
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     proxy: {
       // ai2breath-train의 실시간 임베딩 서버 (ws://127.0.0.1:8765)
       '/ws/live': {
