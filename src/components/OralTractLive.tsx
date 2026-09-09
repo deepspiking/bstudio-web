@@ -1,18 +1,13 @@
 /**
  * 언어 투영 — ecapa LDA 축(+/−) 실시간 2D 탭.
  *
- * 위: 배경(업로드 vocal-tract.svg, 좌우 끝이 ± 축과 같은 위치) + 정적 100발화 + 라이브 펄스.
+ * 위: 배경(업로드 vocal-tract.svg) + 라이브 펄스(+ 파랑/− 빨강 그라데이션).
  * 아래: 녹음될 때마다 한 줄씩 쌓이는 "파형 + 언어신호" 줄. 파형 위에 x값을
  * 세로축(위 + / 아래 −)으로 겹쳐 그린다. 신호는 VAD(발화) 구간만 이어 그리고,
  * 그 외 구간은 보간하지 않는다. 줄을 클릭하면 그 위치부터 재생된다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-interface Pt {
-  x: number
-  y: number
-  ko: boolean
-}
 interface Frame {
   t: number
   x: number
@@ -28,8 +23,6 @@ const SAMPLE_RATE = 16000
 const VIEW = 'ecapa/lang2d'
 const XMIN = -1.12
 const XMAX = 1.12
-const COLOR_KO = '#4f8ef7'
-const COLOR_EN = '#eb5757'
 const PAD_X = 52
 const FIG_W = 250
 const FIG_H = 580
@@ -250,7 +243,6 @@ export default function OralTractLive() {
   const activeRef = useRef<Capture | null>(null)
   const playingIdxRef = useRef(-1)
   const playheadRef = useRef<number | null>(null)
-  const ptsRef = useRef<Pt[]>([])
   const liveRef = useRef({ x: 0, y: 0, on: false, trail: [] as Frame[] })
   const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[]; idleRun: number; speech: number }>({
     pcm: [],
@@ -268,32 +260,6 @@ export default function OralTractLive() {
   const playSrcRef = useRef<AudioBufferSourceNode | null>(null)
   const phaseRef = useRef(phase)
   phaseRef.current = phase
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/embed3d.json')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json() as Promise<{ clips: { c: string }[]; views: Record<string, number[]> }>
-      })
-      .then((d) => {
-        if (cancelled) return
-        const v = d.views[VIEW]
-        if (!d.clips || !v) {
-          setError('embed3d.json에 ecapa/lang2d 뷰가 없습니다.')
-          return
-        }
-        ptsRef.current = d.clips.map((c, i) => ({
-          x: v[i * 3] ?? 0,
-          y: v[i * 3 + 1] ?? 0,
-          ko: c.c === 'ko_fleurs',
-        }))
-      })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)))
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     const el = panelRef.current
@@ -359,15 +325,6 @@ export default function OralTractLive() {
     ctx.fillText('−', PAD_X + 2, zeroY + 18)
     ctx.textAlign = 'right'
     ctx.fillText('+', w - PAD_X - 2, zeroY - 8)
-
-    for (const p of ptsRef.current) {
-      ctx.fillStyle = p.ko ? COLOR_KO : COLOR_EN
-      ctx.globalAlpha = 0.55
-      ctx.beginPath()
-      ctx.arc(sx(p.x), sy(p.y), 2.6, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    ctx.globalAlpha = 1
 
     if (phase === 'live' && liveRef.current.on) {
       const live = liveRef.current
@@ -718,11 +675,6 @@ export default function OralTractLive() {
       </div>
 
       <div style={{ marginTop: 8 }}>
-        {listRef.current.length === 0 && (
-          <p className="hint" style={{ textAlign: 'center', margin: 0 }}>
-            정적 점 {ptsRef.current.length}개 · 파랑 = + · 빨강 = −
-          </p>
-        )}
         {listRef.current.map((cap, i) => (
           <div key={i} style={{ position: 'relative' }}>
             <span
