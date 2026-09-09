@@ -27,7 +27,7 @@ const PAD_X = 52
 const FIG_W = 250
 const FIG_H = 580
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
-const FIG_SCALE = 0.72
+const FIG_SCALE = 0.5
 // x축 표시 중심을 + 방향으로 옮기는 정도 (플롯 폭 대비)
 const X_BIAS = 0.12
 // EPD(발성/무음 판정) 게이트 — 이 dBFS 이상의 프레임만 발성으로 본다
