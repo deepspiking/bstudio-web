@@ -44,8 +44,6 @@ const LOUD_DBFS = -40
 const X_COMPRESS = 3
 const PULSE_R = 30
 const HOP_MS = 100
-const SILENCE_MS = 500
-const MIN_SPEECH_SEC = 0.4
 const PREROLL_SEC = 0.15
 const KEEP_CHUNKS = Math.ceil(30000 / HOP_MS)
 // 프레임 간 이 간격보다 크면 VAD가 끊긴 구간 — 선을 잇지 않는다
@@ -526,9 +524,9 @@ export default function OralTractLive() {
       await ctx.audioWorklet.addModule(url)
       URL.revokeObjectURL(url)
 
-    setPhase('live')
-    setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
-    setInputDb(null)
+      setPhase('live')
+      setModelStatus('모델 로드 중… (최초 1회 약 84MB 다운로드, 인터넷에 따라 수십 초 소요)')
+      setInputDb(null)
       const worker = new Worker(new URL('../enc.worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
       let ready = false
@@ -536,8 +534,6 @@ export default function OralTractLive() {
       let sentChunk = 0
       let chunkNo = 0
       const ringF: number[] = []
-      const recentDb: number[] = []
-      let hasLoud = false
 
       worker.onmessage = (ev) => {
         const data = ev.data
@@ -547,6 +543,7 @@ export default function OralTractLive() {
           return
         }
         if (data && data.type === 'error') {
+          busy = false
           setModelStatus(`추론 오류: ${data.message}`)
           return
         }
@@ -594,25 +591,8 @@ export default function OralTractLive() {
         }
         const rms = Math.sqrt(sum / i16.length)
         const db = 20 * Math.log10(Math.max(rms, 1e-6))
-        recentDb.push(db)
-        if (recentDb.length > 10) recentDb.shift()
         setInputDb(Math.round(db))
-        const quiet = db < EPD_DBFS
-        if (quiet) cap.idleRun += 1
-        else {
-          cap.idleRun = 0
-          cap.speech += 1
-        }
-        if (db >= LOUD_DBFS) hasLoud = true
-        const speechOk = cap.speech * (HOP_MS / 1000) >= MIN_SPEECH_SEC
-        const idleOk = cap.idleRun * (HOP_MS / 1000) >= SILENCE_MS / 1000
-        if (speechOk && idleOk && hasLoud && phaseRef.current === 'live') {
-          stopLive(true)
-          return
-        }
-        const loud = recentDb.filter((v) => v >= EPD_DBFS).length
-        const frac = recentDb.length ? loud / recentDb.length : 0
-        if (!quiet && frac >= 0.5 && ready && !busy && ringF.length >= SAMPLE_RATE) {
+        if (ready && !busy && ringF.length >= SAMPLE_RATE) {
           const win = new Float32Array(SAMPLE_RATE)
           const off = ringF.length - SAMPLE_RATE
           for (let i = 0; i < SAMPLE_RATE; i++) win[i] = ringF[off + i]
