@@ -29,9 +29,9 @@ const FIG_W = 250
 const FIG_H = 580
 const FIG_X0 = 12
 const FIG_Y0 = 12
-// 거울 변환까지 적용한 vocal-tract.svg 안 구강(입) 중심 좌표 (파일 좌표)
-const MOUTH_X = 150
-const MOUTH_Y = 165
+// 거울 변환까지 적용한 vocal-tract.svg 안 구강 중심 — 혓바닥 바로 위 공동 위치 (파일 좌표)
+const MOUTH_X = 176
+const MOUTH_Y = 150
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
 const FIG_SCALE = 0.5
 // x축 표시 중심을 + 방향으로 옮기는 정도 (플롯 폭 대비)
