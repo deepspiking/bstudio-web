@@ -20,7 +20,8 @@ interface Capture {
 }
 
 const SAMPLE_RATE = 16000
-const VIEW = 'ecapa/lang2d'
+const VIEW_FULL = 'ecapa/lang2d_full'
+const VIEW_100 = 'ecapa/lang2d'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
@@ -243,12 +244,15 @@ export default function OralTractLive() {
   const [active, setActive] = useState(-1)
   const [playTime, setPlayTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [viewKey, setViewKey] = useState<string>(VIEW_FULL)
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   const listRef = useRef<Capture[]>([])
   const activeRef = useRef<Capture | null>(null)
   const playingIdxRef = useRef(-1)
   const playheadRef = useRef<number | null>(null)
+  const viewKeyRef = useRef(viewKey)
+  viewKeyRef.current = viewKey
   const liveRef = useRef({ x: 0, y: 0, on: false, trail: [] as Frame[] })
   const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[]; idleRun: number; speech: number }>({
     pcm: [],
@@ -264,6 +268,16 @@ export default function OralTractLive() {
   const rafRef = useRef(0)
   const playRafRef = useRef(0)
   const playSrcRef = useRef<AudioBufferSourceNode | null>(null)
+
+  // 투영 공간이 바뀌면 이전 공간의 점·기록은 의미가 없어 비운다
+  useEffect(() => {
+    liveRef.current = { x: 0, y: 0, on: false, trail: [] }
+    capRef.current.frames = []
+    listRef.current = []
+    setListLen(0)
+    setActive(-1)
+    activeRef.current = null
+  }, [viewKey])
   const phaseRef = useRef(phase)
   phaseRef.current = phase
 
@@ -546,7 +560,7 @@ export default function OralTractLive() {
         const cap = capRef.current
         const quiet = (msg.chunk_dbfs ?? msg.rms_dbfs ?? 0) < EPD_DBFS
         if (msg.type === 'point') {
-          const c = msg.coords?.[VIEW]
+          const c = msg.coords?.[viewKeyRef.current]
           if (c) {
             const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: c[1] }
             cap.frames.push(f)
@@ -644,6 +658,14 @@ export default function OralTractLive() {
             {error}
           </p>
         )}
+        <select
+          value={viewKey}
+          onChange={(e) => setViewKey(e.target.value)}
+          style={{ position: 'absolute', right: 12, top: 8, zIndex: 3, fontSize: 12 }}
+        >
+          <option value={VIEW_FULL}>LDA · 전체 DB</option>
+          <option value={VIEW_100}>LDA · 100발화</option>
+        </select>
         {phase !== 'live' ? (
           <button
             className="btn primary"
