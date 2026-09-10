@@ -35,12 +35,8 @@ const MOUTH_X = 176
 const MOUTH_Y = 150
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
 const FIG_SCALE = 0.5
-// x축 표시 중심을 + 방향으로 옮기는 정도 (플롯 폭 대비)
-const X_BIAS = 0.12
 // EPD(발성/무음 판정) 게이트 — 이 dBFS 이상의 프레임만 발성으로 본다
 const EPD_DBFS = -50
-// x값을 이 비율로 가로 압축해 표시 — 펄스(점)가 움직이는 폭을 1/3로 좁힌다
-const X_COMPRESS = 3
 const PULSE_R = 30
 const HOP_MS = 100
 const SILENCE_MS = 500
@@ -294,7 +290,7 @@ export default function OralTractLive() {
       const bw = Math.max(90, plotW * FIG_SCALE)
       const s = bw / FIG_W
       const ph = Math.max(60, h - PAD_Y * 2)
-      const zeroPx = PAD_X + 0.5 * plotW + plotW * X_BIAS
+      const zeroPx = PAD_X + 0.5 * plotW
       const zeroY = PAD_Y + 0.5 * ph
       setImgBox({
         // 구강 중심이 x축 0(축 중심)과 캔버스 세로 중앙에 오도록 배치
@@ -330,8 +326,7 @@ export default function OralTractLive() {
     const padY = PAD_Y
     const pw = w - PAD_X * 2
     const ph = h - padY * 2
-    const sx = (x: number) =>
-      PAD_X + ((x / X_COMPRESS - XMIN) / (XMAX - XMIN)) * pw + pw * X_BIAS
+    const sx = (x: number) => PAD_X + ((x - XMIN) / (XMAX - XMIN)) * pw
     const sy = (y: number) => padY + ((y + 0.5) / 1.0) * ph
     const zeroY = sy(0)
 
