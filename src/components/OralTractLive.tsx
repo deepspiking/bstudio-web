@@ -564,10 +564,10 @@ export default function OralTractLive() {
         if (msg.type === 'point') {
           const c = msg.coords?.[viewKeyRef.current]
           if (c) {
-            const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: c[1] }
+            const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: 0 }
             cap.frames.push(f)
             liveRef.current.x = c[0]
-            liveRef.current.y = c[1]
+            liveRef.current.y = 0
             liveRef.current.on = true
             liveRef.current.trail.push(f)
             if (liveRef.current.trail.length > 60) liveRef.current.trail.shift()
