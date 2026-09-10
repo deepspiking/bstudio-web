@@ -38,6 +38,8 @@ const FIG_SCALE = 0.5
 // EPD(발성/무음 판정) 게이트 — 이 dBFS 이상의 프레임만 발성으로 본다
 const EPD_DBFS = -50
 const PULSE_R = 30
+// x축(+/-) 표시 폭 — 플롯 폭 대비. 작을수록 축이 좁아진다
+const AXIS_FRAC = 0.62
 const HOP_MS = 100
 const SILENCE_MS = 500
 const MIN_SPEECH_SEC = 0.4
@@ -326,24 +328,29 @@ export default function OralTractLive() {
     const padY = PAD_Y
     const pw = w - PAD_X * 2
     const ph = h - padY * 2
-    const sx = (x: number) => PAD_X + ((x - XMIN) / (XMAX - XMIN)) * pw
+    const axisSpan = pw * AXIS_FRAC
+    const axisLeft = PAD_X + (pw - axisSpan) / 2
+    const sx = (x: number) => axisLeft + ((x - XMIN) / (XMAX - XMIN)) * axisSpan
     const sy = (y: number) => padY + ((y + 0.5) / 1.0) * ph
     const zeroY = sy(0)
 
     ctx.strokeStyle = '#3a3f4b'
     ctx.lineWidth = 1
-    ctx.setLineDash([4, 4])
     ctx.beginPath()
-    ctx.moveTo(PAD_X, zeroY)
-    ctx.lineTo(w - PAD_X, zeroY)
+    ctx.moveTo(sx(-1), zeroY)
+    ctx.lineTo(sx(1), zeroY)
     ctx.stroke()
-    ctx.setLineDash([])
     ctx.fillStyle = '#8b93a3'
-    ctx.font = '15px system-ui, sans-serif'
+    ctx.font = '11px system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('−', PAD_X + 2, zeroY + 18)
-    ctx.textAlign = 'right'
-    ctx.fillText('+', w - PAD_X - 2, zeroY - 8)
+    for (const t of [-1, -0.5, 0, 0.5, 1]) {
+      const X = sx(t)
+      ctx.beginPath()
+      ctx.moveTo(X, zeroY - 4)
+      ctx.lineTo(X, zeroY + 4)
+      ctx.stroke()
+      ctx.fillText(t.toFixed(1), X, zeroY + 18)
+    }
 
     if (phase === 'live' && liveRef.current.on) {
       const live = liveRef.current
