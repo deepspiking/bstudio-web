@@ -20,12 +20,8 @@ interface Capture {
 }
 
 const SAMPLE_RATE = 16000
-const VIEW_FULL = 'ecapa/lang2d_full'
-const VIEW_100 = 'ecapa/lang2d'
-const VIEW_XVEC = 'xvector/lang2d_full'
-const MODE_FULL = 'full'
-const MODE_100 = '100'
-const MODE_XVEC = 'xvec'
+const VIEW = 'ecapa/lang2d'
+const ENCODER = 'ecapa'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
@@ -248,19 +244,17 @@ export default function OralTractLive() {
   const [active, setActive] = useState(-1)
   const [playTime, setPlayTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [mode, setMode] = useState<string>(MODE_FULL)
+  const [viewKey] = useState<string>(VIEW)
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   const listRef = useRef<Capture[]>([])
   const activeRef = useRef<Capture | null>(null)
   const playingIdxRef = useRef(-1)
   const playheadRef = useRef<number | null>(null)
-  const viewKey = mode === MODE_100 ? VIEW_100 : mode === MODE_XVEC ? VIEW_XVEC : VIEW_FULL
   const viewKeyRef = useRef(viewKey)
   viewKeyRef.current = viewKey
-  const encoderName = mode === MODE_XVEC ? 'xvector' : 'ecapa'
-  const encoderRef = useRef(encoderName)
-  encoderRef.current = encoderName
+  const encoderRef = useRef(ENCODER)
+  encoderRef.current = ENCODER
   const liveRef = useRef({ x: 0, y: 0, on: false, trail: [] as Frame[] })
   const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[]; idleRun: number; speech: number }>({
     pcm: [],
@@ -285,7 +279,7 @@ export default function OralTractLive() {
     setListLen(0)
     setActive(-1)
     activeRef.current = null
-  }, [mode])
+  }, [])
   const phaseRef = useRef(phase)
   phaseRef.current = phase
 
@@ -570,10 +564,10 @@ export default function OralTractLive() {
         if (msg.type === 'point') {
           const c = msg.coords?.[viewKeyRef.current]
           if (c) {
-            const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: 0 }
+            const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: c[1] }
             cap.frames.push(f)
             liveRef.current.x = c[0]
-            liveRef.current.y = 0
+            liveRef.current.y = c[1]
             liveRef.current.on = true
             liveRef.current.trail.push(f)
             if (liveRef.current.trail.length > 60) liveRef.current.trail.shift()
@@ -666,18 +660,6 @@ export default function OralTractLive() {
             {error}
           </p>
         )}
-        <select
-          value={mode}
-          onChange={(e) => {
-            setMode(e.target.value)
-            if (phaseRef.current === 'live') stopLive(false)
-          }}
-          style={{ position: 'absolute', right: 12, top: 8, zIndex: 3, fontSize: 12 }}
-        >
-          <option value={MODE_FULL}>LDA · 전체 DB (균형, ECAPA)</option>
-          <option value={MODE_100}>LDA · 100발화</option>
-          <option value={MODE_XVEC}>LDA · 전체 DB (균형, x-vector)</option>
-        </select>
         {phase !== 'live' ? (
           <button
             className="btn primary"
