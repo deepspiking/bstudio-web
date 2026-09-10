@@ -22,6 +22,10 @@ interface Capture {
 const SAMPLE_RATE = 16000
 const VIEW_FULL = 'ecapa/lang2d_full'
 const VIEW_100 = 'ecapa/lang2d'
+const VIEW_REG = 'reg/lang2d'
+const MODE_FULL = 'full'
+const MODE_100 = '100'
+const MODE_REG = 'reg'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
@@ -244,15 +248,19 @@ export default function OralTractLive() {
   const [active, setActive] = useState(-1)
   const [playTime, setPlayTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [viewKey, setViewKey] = useState<string>(VIEW_FULL)
+  const [mode, setMode] = useState<string>(MODE_FULL)
   const [imgBox, setImgBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   const listRef = useRef<Capture[]>([])
   const activeRef = useRef<Capture | null>(null)
   const playingIdxRef = useRef(-1)
   const playheadRef = useRef<number | null>(null)
+  const viewKey = mode === MODE_REG ? VIEW_REG : mode === MODE_100 ? VIEW_100 : VIEW_FULL
+  const encoderName = mode === MODE_REG ? 'regressor' : 'ecapa'
   const viewKeyRef = useRef(viewKey)
   viewKeyRef.current = viewKey
+  const encoderRef = useRef(encoderName)
+  encoderRef.current = encoderName
   const liveRef = useRef({ x: 0, y: 0, on: false, trail: [] as Frame[] })
   const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[]; idleRun: number; speech: number }>({
     pcm: [],
@@ -277,7 +285,7 @@ export default function OralTractLive() {
     setListLen(0)
     setActive(-1)
     activeRef.current = null
-  }, [viewKey])
+  }, [mode])
   const phaseRef = useRef(phase)
   phaseRef.current = phase
 
@@ -545,7 +553,7 @@ export default function OralTractLive() {
       })
       ws.send(
         JSON.stringify({
-          encoder: 'ecapa',
+          encoder: encoderRef.current,
           windowSec: 1,
           hopMs: HOP_MS,
           gateDbfs: EPD_DBFS,
@@ -659,12 +667,16 @@ export default function OralTractLive() {
           </p>
         )}
         <select
-          value={viewKey}
-          onChange={(e) => setViewKey(e.target.value)}
+          value={mode}
+          onChange={(e) => {
+            setMode(e.target.value)
+            if (phaseRef.current === 'live') stopLive(false)
+          }}
           style={{ position: 'absolute', right: 12, top: 8, zIndex: 3, fontSize: 12 }}
         >
-          <option value={VIEW_FULL}>LDA · 전체 DB</option>
-          <option value={VIEW_100}>LDA · 100발화</option>
+          <option value={MODE_FULL}>LDA · 전체 DB</option>
+          <option value={MODE_100}>LDA · 100발화</option>
+          <option value={MODE_REG}>회귀식 (LLD)</option>
         </select>
         {phase !== 'live' ? (
           <button
