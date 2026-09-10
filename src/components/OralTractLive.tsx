@@ -330,7 +330,8 @@ export default function OralTractLive() {
     const ph = h - padY * 2
     const axisSpan = pw * AXIS_FRAC
     const axisLeft = PAD_X + (pw - axisSpan) / 2
-    const sx = (x: number) => axisLeft + ((x - XMIN) / (XMAX - XMIN)) * axisSpan
+    const clampX = (x: number) => Math.max(-1, Math.min(1, x))
+    const sx = (x: number) => axisLeft + ((clampX(x) - XMIN) / (XMAX - XMIN)) * axisSpan
     const sy = (y: number) => padY + ((y + 0.5) / 1.0) * ph
     const zeroY = sy(0)
 
