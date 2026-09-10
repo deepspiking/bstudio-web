@@ -22,8 +22,10 @@ interface Capture {
 const SAMPLE_RATE = 16000
 const VIEW_FULL = 'ecapa/lang2d_full'
 const VIEW_100 = 'ecapa/lang2d'
+const VIEW_XVEC = 'xvector/lang2d_full'
 const MODE_FULL = 'full'
 const MODE_100 = '100'
+const MODE_XVEC = 'xvec'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
@@ -253,11 +255,12 @@ export default function OralTractLive() {
   const activeRef = useRef<Capture | null>(null)
   const playingIdxRef = useRef(-1)
   const playheadRef = useRef<number | null>(null)
-  const viewKey = mode === MODE_100 ? VIEW_100 : VIEW_FULL
+  const viewKey = mode === MODE_100 ? VIEW_100 : mode === MODE_XVEC ? VIEW_XVEC : VIEW_FULL
   const viewKeyRef = useRef(viewKey)
   viewKeyRef.current = viewKey
-  const encoderRef = useRef('ecapa')
-  encoderRef.current = 'ecapa'
+  const encoderName = mode === MODE_XVEC ? 'xvector' : 'ecapa'
+  const encoderRef = useRef(encoderName)
+  encoderRef.current = encoderName
   const liveRef = useRef({ x: 0, y: 0, on: false, trail: [] as Frame[] })
   const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[]; idleRun: number; speech: number }>({
     pcm: [],
@@ -671,8 +674,9 @@ export default function OralTractLive() {
           }}
           style={{ position: 'absolute', right: 12, top: 8, zIndex: 3, fontSize: 12 }}
         >
-          <option value={MODE_FULL}>LDA · 전체 DB (균형)</option>
+          <option value={MODE_FULL}>LDA · 전체 DB (균형, ECAPA)</option>
           <option value={MODE_100}>LDA · 100발화</option>
+          <option value={MODE_XVEC}>LDA · 전체 DB (균형, x-vector)</option>
         </select>
         {phase !== 'live' ? (
           <button
