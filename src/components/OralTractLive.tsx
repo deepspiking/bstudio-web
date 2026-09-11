@@ -35,14 +35,12 @@ const MOUTH_X = 176
 const MOUTH_Y = 150
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
 const FIG_SCALE = 0.5
-// EPD(발성/무음 판정) 게이트 — 이 dBFS 이상의 프레임만 발성으로 본다
-const EPD_DBFS = -50
+// 저장 시 앞묵음을 자를 때 쓰는 기준 (EPD 아님 — 표시/게이트는 상시 동작)
+const TRIM_DBFS = -50
 const PULSE_R = 30
 // x축(+/-) 표시 폭 — 플롯 폭 대비. 작을수록 축이 좁아진다
 const AXIS_FRAC = 0.62
 const HOP_MS = 100
-const SILENCE_MS = 500
-const MIN_SPEECH_SEC = 0.4
 const PREROLL_SEC = 0.15
 const KEEP_CHUNKS = Math.ceil(30000 / HOP_MS)
 // 프레임 간 이 간격보다 크면 VAD가 끊긴 구간 — 선을 잇지 않는다
@@ -254,12 +252,10 @@ export default function OralTractLive() {
   const encoderRef = useRef(ENCODER)
   encoderRef.current = ENCODER
   const liveRef = useRef({ x: 0, y: 0, on: false, trail: [] as Frame[] })
-  const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[]; idleRun: number; speech: number }>({
+  const capRef = useRef<{ pcm: Int16Array[]; base: number; frames: Frame[] }>({
     pcm: [],
     base: 1,
     frames: [],
-    idleRun: 0,
-    speech: 0,
   })
   const wsRef = useRef<WebSocket | null>(null)
   const micCtxRef = useRef<AudioContext | null>(null)
@@ -434,7 +430,7 @@ export default function OralTractLive() {
       o += c.length
     }
     const step = Math.max(1, Math.round((HOP_MS / 1000) * SAMPLE_RATE))
-    const thresh = 10 ** (EPD_DBFS / 20)
+    const thresh = 10 ** (TRIM_DBFS / 20)
     let firstLoud = -1
     for (let s = 0; s + step <= audio.length; s += step) {
       let sum = 0
@@ -522,7 +518,7 @@ export default function OralTractLive() {
     }
     stopPlayback()
     stopLive(false)
-    capRef.current = { pcm: [], base: 1, frames: [], idleRun: 0, speech: 0 }
+    capRef.current = { pcm: [], base: 1, frames: [] }
     liveRef.current = { x: 0, y: 0, on: false, trail: [] }
     setError(null)
     try {
@@ -553,7 +549,7 @@ export default function OralTractLive() {
           encoder: encoderRef.current,
           windowSec: 1,
           hopMs: HOP_MS,
-          gateDbfs: EPD_DBFS,
+          gateDbfs: null,
           minWindowSpeech: 0.5,
         }),
       )
@@ -563,7 +559,6 @@ export default function OralTractLive() {
         const msg = JSON.parse(ev.data as string)
         if (msg.type === 'ready') return
         const cap = capRef.current
-        const quiet = (msg.chunk_dbfs ?? msg.rms_dbfs ?? 0) < EPD_DBFS
         if (msg.type === 'point') {
           const c = msg.coords?.[viewKeyRef.current]
           if (c) {
@@ -576,14 +571,6 @@ export default function OralTractLive() {
             if (liveRef.current.trail.length > 60) liveRef.current.trail.shift()
           }
         }
-        if (quiet) cap.idleRun += 1
-        else {
-          cap.idleRun = 0
-          cap.speech += 1
-        }
-        const speechOk = cap.speech * (HOP_MS / 1000) >= MIN_SPEECH_SEC
-        const idleOk = cap.idleRun * (HOP_MS / 1000) >= SILENCE_MS / 1000
-        if (speechOk && idleOk && phaseRef.current === 'live') stopLive(true)
       }
       ws.onclose = () => {
         if (phaseRef.current === 'live') stopLive(false)
@@ -695,7 +682,7 @@ export default function OralTractLive() {
               정지
             </button>
             <p className="hint" style={{ position: 'absolute', left: 12, top: 8 }}>
-              듣는 중 — 말을 마치고 잠시 쉬면 자동 저장됩니다
+              듣는 중 — 정지 버튼을 누를 때까지 계속 듣습니다
             </p>
           </>
         )}
