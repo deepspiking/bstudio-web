@@ -20,8 +20,8 @@ interface Capture {
 }
 
 const SAMPLE_RATE = 16000
-const VIEW = 'ecapa/lang2d'
-const ENCODER = 'ecapa'
+const VIEW = 'xvector/lang2d_logit'
+const ENCODER = 'xvector'
 const XMIN = -1.12
 const XMAX = 1.12
 const PAD_X = 52
