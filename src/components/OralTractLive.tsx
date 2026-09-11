@@ -20,7 +20,7 @@ interface Capture {
 }
 
 const SAMPLE_RATE = 16000
-const VIEW = 'xvector/lang2d_logit'
+const VIEW = 'xvector/lang2d_logit_05'
 const ENCODER = 'xvector'
 const XMIN = -1.12
 const XMAX = 1.12
@@ -38,7 +38,8 @@ const FIG_SCALE = 0.5
 const PULSE_R = 30
 // x축(+/-) 표시 폭 — 플롯 폭 대비. 작을수록 축이 좁아진다
 const AXIS_FRAC = 0.62
-const HOP_MS = 100
+const HOP_MS = 50
+const WINDOW_SEC = 0.5
 const KEEP_CHUNKS = Math.ceil(30000 / HOP_MS)
 // 프레임 간 이 간격보다 크면 VAD가 끊긴 구간 — 선을 잇지 않는다
 const GAP_SEC = 0.18
@@ -530,7 +531,7 @@ export default function OralTractLive() {
       ws.send(
         JSON.stringify({
           encoder: encoderRef.current,
-          windowSec: 1,
+          windowSec: WINDOW_SEC,
           hopMs: HOP_MS,
           gateDbfs: null,
           minWindowSpeech: 0.5,
