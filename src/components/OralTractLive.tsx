@@ -35,13 +35,10 @@ const MOUTH_X = 176
 const MOUTH_Y = 150
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
 const FIG_SCALE = 0.5
-// 저장 시 앞묵음을 자를 때 쓰는 기준 (EPD 아님 — 표시/게이트는 상시 동작)
-const TRIM_DBFS = -50
 const PULSE_R = 30
 // x축(+/-) 표시 폭 — 플롯 폭 대비. 작을수록 축이 좁아진다
 const AXIS_FRAC = 0.62
 const HOP_MS = 100
-const PREROLL_SEC = 0.15
 const KEEP_CHUNKS = Math.ceil(30000 / HOP_MS)
 // 프레임 간 이 간격보다 크면 VAD가 끊긴 구간 — 선을 잇지 않는다
 const GAP_SEC = 0.18
@@ -429,24 +426,10 @@ export default function OralTractLive() {
       for (let i = 0; i < c.length; i++) audio[o + i] = c[i] / 32768
       o += c.length
     }
-    const step = Math.max(1, Math.round((HOP_MS / 1000) * SAMPLE_RATE))
-    const thresh = 10 ** (TRIM_DBFS / 20)
-    let firstLoud = -1
-    for (let s = 0; s + step <= audio.length; s += step) {
-      let sum = 0
-      for (let i = s; i < s + step; i++) sum += audio[i] * audio[i]
-      if (Math.sqrt(sum / step) >= thresh) {
-        firstLoud = s
-        break
-      }
-    }
-    const start = firstLoud < 0 ? 0 : Math.max(0, firstLoud - Math.round(PREROLL_SEC * SAMPLE_RATE))
-    const trimmed = start > 0 ? audio.subarray(start) : audio
-    const shift = start / SAMPLE_RATE
     const out: Capture = {
-      audio: trimmed,
-      frames: cap.frames.map((f) => ({ ...f, t: f.t - shift })).filter((f) => f.t >= 0),
-      duration: trimmed.length / SAMPLE_RATE,
+      audio,
+      frames: cap.frames.map((f) => ({ ...f })),
+      duration: audio.length / SAMPLE_RATE,
     }
     const idx = listRef.current.length
     listRef.current = [...listRef.current, out]
