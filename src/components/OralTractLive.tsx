@@ -53,7 +53,7 @@ const HOP_MS = 50
 const VAD_DBFS = -50
 const WINDOW_SEC = 0.5
 // 저장 그래프만 창 중심을 고려해 왼쪽으로 당긴다(실시간 표시는 그대로)
-const GRAPH_SHIFT_SEC = 0.5
+const GRAPH_SHIFT_SEC = WINDOW_SEC / 2
 // 보관 상한(메모리 안전) — 통상 녹음은 잘리지 않게 넉넉히 (30분)
 const KEEP_CHUNKS = Math.ceil((30 * 60 * 1000) / HOP_MS)
 // 프레임 간 이 간격보다 크면 VAD가 끊긴 구간 — 선을 잇지 않는다
