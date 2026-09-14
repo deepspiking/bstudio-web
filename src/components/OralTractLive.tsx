@@ -17,6 +17,8 @@ interface Capture {
   audio: Float32Array
   frames: Frame[]
   duration: number
+  /** 발성 구간 평균 x를 100~0으로 정규화한 점수 (x=+1 → 0, x=-1 → 100) */
+  score: number
 }
 
 const SAMPLE_RATE = 16000
@@ -53,7 +55,7 @@ const WINDOW_SEC = 0.5
 // 보관 상한(메모리 안전) — 통상 녹음은 잘리지 않게 넉넉히 (30분)
 const KEEP_CHUNKS = Math.ceil((30 * 60 * 1000) / HOP_MS)
 // 프레임 간 이 간격보다 크면 VAD가 끊긴 구간 — 선을 잇지 않는다
-const GAP_SEC = 0.18
+const GAP_SEC = 0.35
 
 const MIC_WORKLET = `
 class MicProcessor extends AudioWorkletProcessor {
@@ -239,6 +241,19 @@ function RowWave({ cap, active, playing, playTime, onSeek }: {
       }}
     >
       <canvas ref={cvRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+      <span
+        style={{
+          position: 'absolute',
+          right: 6,
+          top: 2,
+          zIndex: 2,
+          pointerEvents: 'none',
+          fontSize: 11,
+          color: '#b7c3ff',
+        }}
+      >
+        점수 {cap.score}
+      </span>
       {playing && (
         <div
           style={{
@@ -371,7 +386,7 @@ export default function OralTractLive() {
       ctx.moveTo(X, zeroY - 4)
       ctx.lineTo(X, zeroY + 4)
       ctx.stroke()
-      ctx.fillText(t.toFixed(1), X, zeroY + 18)
+      ctx.fillText(String(Math.round((1 - t) * 50)), X, zeroY + 18)
     }
 
     if (phase === 'live' && liveRef.current.on) {
@@ -465,19 +480,32 @@ export default function OralTractLive() {
       for (let i = 0; i < c.length; i++) audio[o + i] = c[i] / 32768
       o += c.length
     }
-    const out: Capture = {
-      audio,
-      // 프레임 시각을 오디오 시작(base) 기준으로 옮긴다 — 앞을 버렸어도 파형과 맞는다
-      frames: cap.frames
-        .map((f) => ({ ...f, t: f.t - (cap.base - 1) * (HOP_MS / 1000) }))
-        .filter((f) => f.t >= 0),
-      duration: audio.length / SAMPLE_RATE,
+    const shifted = cap.frames
+      .map((f) => ({ ...f, t: f.t - (cap.base - 1) * (HOP_MS / 1000) }))
+      .filter((f) => f.t >= 0)
+    const runs = runsOf(shifted)
+    if (runs.length === 0) return
+    const segments: Capture[] = []
+    for (const run of runs) {
+      const t0 = Math.max(0, run[0].t)
+      const t1 = Math.min(audio.length / SAMPLE_RATE, run[run.length - 1].t + HOP_MS / 1000)
+      const a = Math.floor(t0 * SAMPLE_RATE)
+      const b = Math.min(audio.length, Math.ceil(t1 * SAMPLE_RATE))
+      if (b - a < SAMPLE_RATE * 0.1) continue
+      const xMean = run.reduce((s, f) => s + f.x, 0) / run.length
+      segments.push({
+        audio: audio.subarray(a, b),
+        frames: run.map((f) => ({ ...f, t: f.t - t0 })),
+        duration: (b - a) / SAMPLE_RATE,
+        score: Math.max(0, Math.min(100, Math.round((1 - Math.max(-1, Math.min(1, xMean))) * 50))),
+      })
     }
-    const idx = listRef.current.length
-    listRef.current = [...listRef.current, out]
-    setListLen(idx + 1)
-    setActive(idx)
-    activeRef.current = out
+    if (segments.length === 0) return
+    const base = listRef.current.length
+    listRef.current = [...listRef.current, ...segments]
+    setListLen(base + segments.length)
+    setActive(base)
+    activeRef.current = segments[0]
   }, [])
 
   const stopLive = useCallback(
