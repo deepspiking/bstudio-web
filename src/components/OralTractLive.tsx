@@ -208,20 +208,20 @@ function ScoreScatter({ caps, active, playing, onPick }: {
         const y = py(c.score)
         const hue = hueOf(1 - c.score / 50)
         ctx.beginPath()
-        ctx.arc(x, y, i === active ? 6 : 4, 0, Math.PI * 2)
+        ctx.arc(x, y, i === active ? 11 : 8, 0, Math.PI * 2)
         ctx.fillStyle = `hsla(${hue}, 80%, 62%, 0.9)`
         ctx.fill()
         if (i === playing) {
           ctx.strokeStyle = '#f5f7fa'
           ctx.lineWidth = 2
           ctx.beginPath()
-          ctx.arc(x, y, 8, 0, Math.PI * 2)
+          ctx.arc(x, y, 13, 0, Math.PI * 2)
           ctx.stroke()
         }
         ctx.fillStyle = '#8f97a8'
         ctx.font = '10px system-ui, sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText(String(i + 1), x, y - 9)
+        ctx.fillText(String(i + 1), x, y - 14)
       })
     }
     draw()
@@ -257,7 +257,7 @@ function ScoreScatter({ caps, active, playing, onPick }: {
               best = i
             }
           })
-          if (best >= 0 && bd <= 400) onPick(best)
+          if (best >= 0 && bd <= 900) onPick(best)
         }}
       />
     </div>
