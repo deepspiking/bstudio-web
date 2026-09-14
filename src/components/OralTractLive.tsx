@@ -263,7 +263,7 @@ function RowWave({ cap, active, playing, playTime, onSeek }: {
           color: '#b7c3ff',
         }}
       >
-        점수 {cap.score}
+        {cap.score}
       </span>
       {playing && (
         <div
@@ -769,6 +769,15 @@ export default function OralTractLive() {
       </div>
 
       <div style={{ marginTop: 8 }}>
+        {listLen > 0 && (
+          <p className="hint" style={{ textAlign: 'center', margin: '0 0 6px' }}>
+            평균 점수{' '}
+            <b style={{ color: '#b7c3ff' }}>
+              {Math.round(listRef.current.reduce((s, c) => s + c.score, 0) / listLen)}
+            </b>{' '}
+            ({listLen}개 발성)
+          </p>
+        )}
         {listRef.current.map((cap, i) => (
           <div key={i} style={{ position: 'relative' }}>
             <span
