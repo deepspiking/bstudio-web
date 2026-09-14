@@ -234,7 +234,7 @@ function ScoreScatter({ caps, active, playing, onPick }: {
     <div
       ref={wrapRef}
       className="embed-panel"
-      style={{ position: 'relative', flex: '1 1 240px', maxWidth: 380, minWidth: 200, overflow: 'hidden', padding: 0 }}
+      style={{ position: 'relative', flex: '1 1 auto', minWidth: 220, overflow: 'hidden', padding: 0 }}
     >
       <canvas
         ref={cvRef}
