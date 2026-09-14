@@ -129,9 +129,11 @@ function drawPulse(ctx: CanvasRenderingContext2D, x: number, y: number, v: numbe
 }
 
 /** 발화 하나의 가로줄 — 회색 파형 + 언어신호(VAD 구간만, + 위/− 아래). 클릭=그 위치부터 재생 */
-function RowWave({ cap, active, onSeek }: {
+function RowWave({ cap, active, playing, playTime, onSeek }: {
   cap: Capture
   active: boolean
+  playing: boolean
+  playTime: number
   onSeek: (t: number) => void
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -236,6 +238,20 @@ function RowWave({ cap, active, onSeek }: {
       }}
     >
       <canvas ref={cvRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+      {playing && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: `calc(34px + (100% - 34px) * ${Math.min(1, playTime / Math.max(cap.duration, 1e-6))})`,
+            width: 2,
+            background: '#f5f7fa',
+            boxShadow: '0 0 6px rgba(245,247,250,0.8)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -400,7 +416,18 @@ export default function OralTractLive() {
           if (f.t <= head) pos = f
           else break
         }
-        drawPulse(ctx, sx(pos.x), sy(pos.y), pos.x, now)
+        const X = sx(pos.x)
+        ctx.setLineDash([5, 5])
+        ctx.globalAlpha = 0.45
+        ctx.strokeStyle = '#f5f7fa'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(X, padY)
+        ctx.lineTo(X, h - padY)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.globalAlpha = 1
+        drawPulse(ctx, X, sy(pos.y), pos.x, now)
       }
     }
   }, [phase])
@@ -439,7 +466,10 @@ export default function OralTractLive() {
     }
     const out: Capture = {
       audio,
-      frames: cap.frames.map((f) => ({ ...f })),
+      // 프레임 시각을 오디오 시작(base) 기준으로 옮긴다 — 앞을 버렸어도 파형과 맞는다
+      frames: cap.frames
+        .map((f) => ({ ...f, t: f.t - (cap.base - 1) * (HOP_MS / 1000) }))
+        .filter((f) => f.t >= 0),
       duration: audio.length / SAMPLE_RATE,
     }
     const idx = listRef.current.length
@@ -576,13 +606,14 @@ export default function OralTractLive() {
       })
       node.port.onmessage = (e) => {
         const buf = e.data as ArrayBuffer
+        if (ws.readyState !== WebSocket.OPEN) return
         const cap = capRef.current
         cap.pcm.push(new Int16Array(buf.slice(0)))
         if (cap.pcm.length > KEEP_CHUNKS) {
           cap.base += cap.pcm.length - KEEP_CHUNKS
           cap.pcm.splice(0, cap.pcm.length - KEEP_CHUNKS)
         }
-        if (ws.readyState === WebSocket.OPEN) ws.send(buf)
+        ws.send(buf)
       }
       src.connect(node)
       node.connect(ctx.createGain()).connect(ctx.destination)
@@ -713,7 +744,13 @@ export default function OralTractLive() {
             >
               #{i + 1} · {cap.duration.toFixed(2)}s
             </span>
-            <RowWave cap={cap} active={i === active} onSeek={(t) => playFrom(i, t)} />
+            <RowWave
+              cap={cap}
+              active={i === active}
+              playing={playingIdxRef.current === i}
+              playTime={playingIdxRef.current === i ? playTime : 0}
+              onSeek={(t) => playFrom(i, t)}
+            />
           </div>
         ))}
         {playingIdxRef.current >= 0 && (
