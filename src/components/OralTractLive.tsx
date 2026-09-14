@@ -487,7 +487,8 @@ export default function OralTractLive() {
     if (runs.length === 0) return
     const segments: Capture[] = []
     for (const run of runs) {
-      const t0 = Math.max(0, run[0].t)
+      // 첫 점은 0.5초 창을 포함한 결과라, 그만큼 앞을 당겨야 발성 시작(어택)이 안 잘린다
+      const t0 = Math.max(0, run[0].t - WINDOW_SEC)
       const t1 = Math.min(audio.length / SAMPLE_RATE, run[run.length - 1].t + HOP_MS / 1000)
       const a = Math.floor(t0 * SAMPLE_RATE)
       const b = Math.min(audio.length, Math.ceil(t1 * SAMPLE_RATE))
