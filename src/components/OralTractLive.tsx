@@ -134,6 +134,115 @@ function drawPulse(ctx: CanvasRenderingContext2D, x: number, y: number, v: numbe
   ctx.restore()
 }
 
+/** (발화 길이, 점수) 산점도 — 점을 클릭하면 그 발화를 재생 */
+function ScoreScatter({ caps, active, playing, onPick }: {
+  caps: Capture[]
+  active: number
+  playing: number
+  onPick: (i: number) => void
+}) {
+  const cvRef = useRef<HTMLCanvasElement>(null)
+  const PAD_L = 30
+  const PAD_B = 22
+  const PAD_T = 10
+  const PAD_R = 8
+  const W = 200
+  const H = 240
+
+  useEffect(() => {
+    const cv = cvRef.current
+    if (!cv) return
+    const dpr = window.devicePixelRatio || 1
+    cv.width = Math.round(W * dpr)
+    cv.height = Math.round(H * dpr)
+    const ctx = cv.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, W, H)
+
+    const pw = W - PAD_L - PAD_R
+    const ph = H - PAD_T - PAD_B
+    const maxDur = Math.max(0.5, ...caps.map((c) => c.duration))
+    const px = (d: number) => PAD_L + (d / maxDur) * pw
+    const py = (sc: number) => PAD_T + (1 - sc / 100) * ph
+
+    ctx.strokeStyle = '#3a4150'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(PAD_L, PAD_T)
+    ctx.lineTo(PAD_L, PAD_T + ph)
+    ctx.lineTo(PAD_L + pw, PAD_T + ph)
+    ctx.stroke()
+
+    ctx.fillStyle = '#697083'
+    ctx.font = '10px system-ui, sans-serif'
+    ctx.textAlign = 'right'
+    for (const sc of [0, 50, 100]) {
+      ctx.fillText(String(sc), PAD_L - 4, py(sc) + 3)
+      ctx.strokeStyle = '#2b313c'
+      ctx.beginPath()
+      ctx.moveTo(PAD_L, py(sc))
+      ctx.lineTo(PAD_L + pw, py(sc))
+      ctx.stroke()
+    }
+    ctx.textAlign = 'center'
+    ctx.fillText(`${maxDur.toFixed(1)}s`, PAD_L + pw, H - 6)
+    ctx.save()
+    ctx.translate(9, PAD_T + ph / 2)
+    ctx.rotate(-Math.PI / 2)
+    ctx.fillText('점수', 0, 0)
+    ctx.restore()
+
+    caps.forEach((c, i) => {
+      const x = px(c.duration)
+      const y = py(c.score)
+      const hue = hueOf(1 - c.score / 50)
+      ctx.beginPath()
+      ctx.arc(x, y, i === active ? 6 : 4, 0, Math.PI * 2)
+      ctx.fillStyle = `hsla(${hue}, 80%, 62%, 0.9)`
+      ctx.fill()
+      if (i === playing) {
+        ctx.strokeStyle = '#f5f7fa'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(x, y, 8, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.fillStyle = '#8f97a8'
+      ctx.font = '9px system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(String(i + 1), x, y - 9)
+    })
+  }, [caps, active, playing])
+
+  return (
+    <canvas
+      ref={cvRef}
+      style={{ width: W, height: H, cursor: 'pointer', flex: '0 0 auto' }}
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        const mx = e.clientX - rect.left
+        const my = e.clientY - rect.top
+        const pw = W - PAD_L - PAD_R
+        const ph = H - PAD_T - PAD_B
+        const maxDur = Math.max(0.5, ...caps.map((c) => c.duration))
+        let best = -1
+        let bd = 1e9
+        caps.forEach((c, i) => {
+          const dx = mx - (PAD_L + (c.duration / maxDur) * pw)
+          const dy = my - (PAD_T + (1 - c.score / 100) * ph)
+          const d = dx * dx + dy * dy
+          if (d < bd) {
+            bd = d
+            best = i
+          }
+        })
+        if (best >= 0 && bd <= 400) onPick(best)
+      }}
+    />
+  )
+}
+
 /** 발화 하나의 가로줄 — 회색 파형 + 언어신호(VAD 구간만, + 위/− 아래). 클릭=그 위치부터 재생 */
 function RowWave({ cap, active, playing, playTime, onSeek }: {
   cap: Capture
@@ -680,6 +789,7 @@ export default function OralTractLive() {
 
   return (
     <div className="embed-wrap">
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
       <div
         ref={panelRef}
         className="embed-panel"
@@ -687,6 +797,7 @@ export default function OralTractLive() {
           position: 'relative',
           overflow: 'hidden',
           padding: 0,
+          flex: '1 1 auto',
           height: 'min(74vh, 680px)',
           minHeight: 420,
         }}
@@ -766,6 +877,13 @@ export default function OralTractLive() {
             </p>
           </>
         )}
+      </div>
+      <ScoreScatter
+        caps={listRef.current}
+        active={active}
+        playing={playingIdxRef.current}
+        onPick={(i) => playFrom(i, 0)}
+      />
       </div>
 
       <div style={{ marginTop: 8 }}>
