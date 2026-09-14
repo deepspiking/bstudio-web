@@ -52,6 +52,7 @@ const HOP_MS = 50
 // 간단 VAD: 윈도우 레벨이 이 dBFS 미만이면 추론하지 않는다
 const VAD_DBFS = -50
 const WINDOW_SEC = 0.5
+const WAVE_LOG_K = 25
 // 저장 그래프만 창 중심을 고려해 왼쪽으로 당긴다(실시간 표시는 그대로)
 const GRAPH_SHIFT_SEC = WINDOW_SEC / 2
 // 보관 상한(메모리 안전) — 통상 녹음은 잘리지 않게 넉넉히 (30분)
@@ -175,6 +176,14 @@ function RowWave({ cap, active, playing, playTime, onSeek }: {
       ctx.fillText('−', labelW - 16, h - 6)
 
       const n = cap.audio.length
+      let peak = 0
+      for (let i = 0; i < n; i++) {
+        const a = Math.abs(cap.audio[i])
+        if (a > peak) peak = a
+      }
+      const ref = Math.max(peak, 0.15)
+      const lg = (v: number) =>
+        Math.sign(v) * (Math.log1p(WAVE_LOG_K * Math.abs(v) / ref) / Math.log1p(WAVE_LOG_K))
       ctx.strokeStyle = '#4a515f'
       ctx.lineWidth = 1
       ctx.beginPath()
@@ -189,8 +198,8 @@ function RowWave({ cap, active, playing, playTime, onSeek }: {
             if (val < mn) mn = val
             if (val > mx) mx = val
           }
-          ctx.moveTo(tx(0) + px + 0.5, midY - mx * amp)
-          ctx.lineTo(tx(0) + px + 0.5, midY - mn * amp)
+          ctx.moveTo(tx(0) + px + 0.5, midY - lg(mx) * amp)
+          ctx.lineTo(tx(0) + px + 0.5, midY - lg(mn) * amp)
         }
       }
       ctx.stroke()
