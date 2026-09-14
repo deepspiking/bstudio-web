@@ -44,7 +44,8 @@ const FIG_Y0 = 12
 const MOUTH_X = 176
 const MOUTH_Y = 150
 // 배경 그림 크기(폭 기준 비율) — 1보다 작으면 좌우 여백이 생기며 축소된다
-const FIG_SCALE = 0.5
+const FIG_SCALE = 0.58
+const FIG_MIN_H_FRAC = 1.15
 const PULSE_R = 30
 // x축(+/-) 표시 폭 — 플롯 폭 대비. 작을수록 축이 좁아진다
 const AXIS_FRAC = 0.62
@@ -141,105 +142,125 @@ function ScoreScatter({ caps, active, playing, onPick }: {
   playing: number
   onPick: (i: number) => void
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
   const cvRef = useRef<HTMLCanvasElement>(null)
-  const PAD_L = 30
-  const PAD_B = 22
-  const PAD_T = 10
-  const PAD_R = 8
-  const W = 200
-  const H = 240
+  const PAD_L = 34
+  const PAD_B = 26
+  const PAD_T = 16
+  const PAD_R = 14
+  const plotRef = useRef({ w: 0, h: 0, maxDur: 1 })
 
   useEffect(() => {
+    const wrap = wrapRef.current
     const cv = cvRef.current
-    if (!cv) return
-    const dpr = window.devicePixelRatio || 1
-    cv.width = Math.round(W * dpr)
-    cv.height = Math.round(H * dpr)
-    const ctx = cv.getContext('2d')
-    if (!ctx) return
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, W, H)
+    if (!wrap || !cv) return
+    const draw = () => {
+      const w = wrap.clientWidth
+      const h = wrap.clientHeight
+      if (!w || !h) return
+      const dpr = window.devicePixelRatio || 1
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+        cv.width = Math.round(w * dpr)
+        cv.height = Math.round(h * dpr)
+      }
+      const ctx = cv.getContext('2d')
+      if (!ctx) return
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
 
-    const pw = W - PAD_L - PAD_R
-    const ph = H - PAD_T - PAD_B
-    const maxDur = Math.max(0.5, ...caps.map((c) => c.duration))
-    const px = (d: number) => PAD_L + (d / maxDur) * pw
-    const py = (sc: number) => PAD_T + (1 - sc / 100) * ph
+      const pw = w - PAD_L - PAD_R
+      const ph = h - PAD_T - PAD_B
+      const maxDur = Math.max(0.5, ...caps.map((c) => c.duration))
+      plotRef.current = { w, h, maxDur }
+      const px = (d: number) => PAD_L + (d / maxDur) * pw
+      const py = (sc: number) => PAD_T + (1 - sc / 100) * ph
 
-    ctx.strokeStyle = '#3a4150'
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(PAD_L, PAD_T)
-    ctx.lineTo(PAD_L, PAD_T + ph)
-    ctx.lineTo(PAD_L + pw, PAD_T + ph)
-    ctx.stroke()
+      ctx.fillStyle = '#697083'
+      ctx.font = '11px system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('길이(s) · 점수', w / 2, 12)
 
-    ctx.fillStyle = '#697083'
-    ctx.font = '10px system-ui, sans-serif'
-    ctx.textAlign = 'right'
-    for (const sc of [0, 50, 100]) {
-      ctx.fillText(String(sc), PAD_L - 4, py(sc) + 3)
-      ctx.strokeStyle = '#2b313c'
-      ctx.beginPath()
-      ctx.moveTo(PAD_L, py(sc))
-      ctx.lineTo(PAD_L + pw, py(sc))
-      ctx.stroke()
-    }
-    ctx.textAlign = 'center'
-    ctx.fillText(`${maxDur.toFixed(1)}s`, PAD_L + pw, H - 6)
-    ctx.save()
-    ctx.translate(9, PAD_T + ph / 2)
-    ctx.rotate(-Math.PI / 2)
-    ctx.fillText('점수', 0, 0)
-    ctx.restore()
-
-    caps.forEach((c, i) => {
-      const x = px(c.duration)
-      const y = py(c.score)
-      const hue = hueOf(1 - c.score / 50)
-      ctx.beginPath()
-      ctx.arc(x, y, i === active ? 6 : 4, 0, Math.PI * 2)
-      ctx.fillStyle = `hsla(${hue}, 80%, 62%, 0.9)`
-      ctx.fill()
-      if (i === playing) {
-        ctx.strokeStyle = '#f5f7fa'
-        ctx.lineWidth = 2
+      ctx.strokeStyle = '#3a4150'
+      ctx.lineWidth = 1
+      for (const sc of [0, 25, 50, 75, 100]) {
+        ctx.textAlign = 'right'
+        ctx.fillStyle = '#697083'
+        ctx.fillText(String(sc), PAD_L - 6, py(sc) + 4)
+        ctx.strokeStyle = sc === 0 ? '#4a515f' : '#2b313c'
         ctx.beginPath()
-        ctx.arc(x, y, 8, 0, Math.PI * 2)
+        ctx.moveTo(PAD_L, py(sc))
+        ctx.lineTo(PAD_L + pw, py(sc))
         ctx.stroke()
       }
-      ctx.fillStyle = '#8f97a8'
-      ctx.font = '9px system-ui, sans-serif'
+      ctx.strokeStyle = '#4a515f'
+      ctx.beginPath()
+      ctx.moveTo(PAD_L, PAD_T)
+      ctx.lineTo(PAD_L, PAD_T + ph)
+      ctx.stroke()
+
+      ctx.fillStyle = '#697083'
       ctx.textAlign = 'center'
-      ctx.fillText(String(i + 1), x, y - 9)
-    })
+      ctx.fillText('0', PAD_L, PAD_T + ph + 14)
+      ctx.fillText(`${maxDur.toFixed(1)}s`, PAD_L + pw, PAD_T + ph + 14)
+
+      caps.forEach((c, i) => {
+        const x = px(c.duration)
+        const y = py(c.score)
+        const hue = hueOf(1 - c.score / 50)
+        ctx.beginPath()
+        ctx.arc(x, y, i === active ? 6 : 4, 0, Math.PI * 2)
+        ctx.fillStyle = `hsla(${hue}, 80%, 62%, 0.9)`
+        ctx.fill()
+        if (i === playing) {
+          ctx.strokeStyle = '#f5f7fa'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(x, y, 8, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+        ctx.fillStyle = '#8f97a8'
+        ctx.font = '10px system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(String(i + 1), x, y - 9)
+      })
+    }
+    draw()
+    const ro = new ResizeObserver(draw)
+    ro.observe(wrap)
+    return () => ro.disconnect()
   }, [caps, active, playing])
 
   return (
-    <canvas
-      ref={cvRef}
-      style={{ width: W, height: H, cursor: 'pointer', flex: '0 0 auto' }}
-      onClick={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect()
-        const mx = e.clientX - rect.left
-        const my = e.clientY - rect.top
-        const pw = W - PAD_L - PAD_R
-        const ph = H - PAD_T - PAD_B
-        const maxDur = Math.max(0.5, ...caps.map((c) => c.duration))
-        let best = -1
-        let bd = 1e9
-        caps.forEach((c, i) => {
-          const dx = mx - (PAD_L + (c.duration / maxDur) * pw)
-          const dy = my - (PAD_T + (1 - c.score / 100) * ph)
-          const d = dx * dx + dy * dy
-          if (d < bd) {
-            bd = d
-            best = i
-          }
-        })
-        if (best >= 0 && bd <= 400) onPick(best)
-      }}
-    />
+    <div
+      ref={wrapRef}
+      className="embed-panel"
+      style={{ position: 'relative', flex: '1 1 240px', maxWidth: 380, minWidth: 200, overflow: 'hidden', padding: 0 }}
+    >
+      <canvas
+        ref={cvRef}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const mx = e.clientX - rect.left
+          const my = e.clientY - rect.top
+          const { w, h, maxDur } = plotRef.current
+          const pw = w - PAD_L - PAD_R
+          const ph = h - PAD_T - PAD_B
+          let best = -1
+          let bd = 1e9
+          caps.forEach((c, i) => {
+            const dx = mx - (PAD_L + (c.duration / maxDur) * pw)
+            const dy = my - (PAD_T + (1 - c.score / 100) * ph)
+            const d = dx * dx + dy * dy
+            if (d < bd) {
+              bd = d
+              best = i
+            }
+          })
+          if (best >= 0 && bd <= 400) onPick(best)
+        }}
+      />
+    </div>
   )
 }
 
@@ -445,9 +466,9 @@ export default function OralTractLive() {
       const h = el.clientHeight
       if (!w || !h) return
       const plotW = Math.max(120, w - PAD_X * 2)
-      const bw = Math.max(90, plotW * FIG_SCALE)
-      const s = bw / FIG_W
       const ph = Math.max(60, h - PAD_Y * 2)
+      const s = Math.max(plotW * FIG_SCALE / FIG_W, (ph * FIG_MIN_H_FRAC) / FIG_H)
+      const bw = FIG_W * s
       const zeroPx = PAD_X + 0.5 * plotW
       const zeroY = PAD_Y + 0.5 * ph
       setImgBox({
@@ -789,7 +810,7 @@ export default function OralTractLive() {
 
   return (
     <div className="embed-wrap">
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
       <div
         ref={panelRef}
         className="embed-panel"
@@ -797,7 +818,8 @@ export default function OralTractLive() {
           position: 'relative',
           overflow: 'hidden',
           padding: 0,
-          flex: '1 1 auto',
+          flex: '1 1 620px',
+          maxWidth: 640,
           height: 'min(74vh, 680px)',
           minHeight: 420,
         }}
