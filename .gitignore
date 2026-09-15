@@ -3,3 +3,4 @@ dist
 certs
 *.local
 .DS_Store
+public/l2en/audio

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>한국인 영어 발성 듣기 (AIHub 71463, 화자별 랜덤 2개)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0f1218; color: #e6e9ef;
+    font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5; background: #141a22;
+    border-bottom: 1px solid #232b36; padding: 10px 14px 12px;
+  }
+  h1 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .sub { color: #8b93a3; font-size: 12px; }
+  .player { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  button {
+    background: #1e2733; color: #dfe5ee; border: 1px solid #2e3a49;
+    border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { background: #26313f; }
+  button.primary { background: #3b4bd8; border-color: #4a5bf0; color: #fff; }
+  button.primary:hover { background: #4757e6; }
+  #seek { flex: 1 1 220px; min-width: 160px; accent-color: #6b7bff; }
+  .now { color: #b7c3ff; font-size: 12px; min-width: 190px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  input, select {
+    background: #1a212b; color: #dfe5ee; border: 1px solid #2e3a49;
+    border-radius: 8px; padding: 6px 9px; font-size: 13px;
+  }
+  #q { flex: 1 1 240px; min-width: 180px; }
+  main { padding: 12px 14px 40px; }
+  .spk {
+    background: #141a22; border: 1px solid #222a35; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 10px;
+  }
+  .spk h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+  .tag { color: #8b93a3; font-size: 11px; font-weight: 400; }
+  .row {
+    display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+    border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+  }
+  .row:hover { background: #1a212b; }
+  .row.playing { border-color: #4a5bf0; background: #1b2333; }
+  .row .meta { flex: 1 1 auto; min-width: 0; }
+  .row .txt {
+    color: #9aa3b2; font-size: 12px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .dur { color: #7d8697; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #more { display: block; margin: 16px auto 0; }
+  #script {
+    margin-top: 10px; background: #10161e; border: 1px solid #232b36;
+    border-radius: 8px; padding: 10px; color: #c9d1de; font-size: 13px;
+    max-height: 130px; overflow: auto; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>한국인 영어 발성 듣기 <span class="sub" id="stat"></span></h1>
+  <div class="sub">AIHub 71463 · 화자별 랜덤 2개 · 행을 클릭하면 재생됩니다</div>
+  <div class="player">
+    <button id="play" class="primary">재생</button>
+    <button id="back5">−5s</button>
+    <button id="fwd5">+5s</button>
+    <input id="seek" type="range" min="0" max="1000" value="0" />
+    <span class="now" id="time">0.00 / 0.00</span>
+    <span class="now" id="now"></span>
+  </div>
+  <div class="filters">
+    <input id="q" placeholder="화자 ID 또는 문장 검색" />
+    <select id="gender"><option value="">성별 전체</option><option value="F">F</option><option value="M">M</option></select>
+    <select id="ability"><option value="">수준 전체</option><option value="LOW">LOW</option><option value="MID">MID</option><option value="HIGH">HIGH</option></select>
+    <select id="age"><option value="">나이 전체</option></select>
+    <button id="shuffle">순서 섞기</button>
+  </div>
+  <div id="script"></div>
+</header>
+<main id="list"></main>
+<button id="more">더 보기</button>
+<audio id="au" preload="metadata"></audio>
+<script>
+const PAGE_SPK = 40
+let data = [], order = [], shown = 0, cur = null
+
+const au = document.getElementById('au')
+const list = document.getElementById('list')
+const seek = document.getElementById('seek')
+const timeEl = document.getElementById('time')
+const nowEl = document.getElementById('now')
+const scriptEl = document.getElementById('script')
+const statEl = document.getElementById('stat')
+
+const fmt = (s) => (isFinite(s) ? s.toFixed(2) : '0.00')
+
+fetch('/l2en/data.json').then((r) => r.json()).then((d) => {
+  data = d.items
+  statEl.textContent = `— 화자 ${d.speakers}명 / 발성 ${d.count}개`
+  const ages = [...new Set(data.map((x) => x.age).filter(Boolean))].sort((a, b) => a - b)
+  const ageSel = document.getElementById('age')
+  for (const a of ages) {
+    const o = document.createElement('option')
+    o.value = String(a); o.textContent = a + '세'
+    ageSel.appendChild(o)
+  }
+  rebuild()
+})
+
+function filtered() {
+  const q = document.getElementById('q').value.trim().toLowerCase()
+  const g = document.getElementById('gender').value
+  const ab = document.getElementById('ability').value
+  const ag = document.getElementById('age').value
+  return data.filter((x) =>
+    (!g || x.gender === g) && (!ab || x.ability === ab) && (!ag || String(x.age) === ag) &&
+    (!q || x.spk.includes(q) || (x.passage || '').toLowerCase().includes(q))
+  )
+}
+
+function rebuild() {
+  const rows = filtered()
+  const groups = new Map()
+  for (const x of rows) {
+    if (!groups.has(x.spk)) groups.set(x.spk, [])
+    groups.get(x.spk).push(x)
+  }
+  order = [...groups.entries()]
+  shown = 0
+  list.innerHTML = ''
+  renderMore()
+  statEl.textContent = `— ${order.length}명 / ${rows.length}개 표시`
+}
+
+function renderMore() {
+  const slice = order.slice(shown, shown + PAGE_SPK)
+  for (const [spk, items] of slice) {
+    const it0 = items[0]
+    const card = document.createElement('div')
+    card.className = 'spk'
+    const h = document.createElement('h2')
+    h.innerHTML = `화자 ${spk} <span class="tag">${it0.gender ?? '?'} · ${it0.age ?? '?'}세 · ${it0.ability ?? '?'}</span>`
+    card.appendChild(h)
+    for (const it of items) {
+      const row = document.createElement('div')
+      row.className = 'row'
+      row.dataset.audio = it.audio
+      row.innerHTML = `<span class="dur">▶ ${fmt(it.dur)}s</span>
+        <span class="meta"><span class="txt">${(it.passage || it.question || '').slice(0, 160) || '(문장 없음)'}</span></span>`
+      row.onclick = () => play(it, row)
+      card.appendChild(row)
+    }
+    list.appendChild(card)
+  }
+  shown += slice.length
+  document.getElementById('more').style.display = shown < order.length ? 'block' : 'none'
+}
+
+function play(it, row) {
+  cur = it
+  document.querySelectorAll('.row.playing').forEach((e) => e.classList.remove('playing'))
+  row.classList.add('playing')
+  au.src = it.audio
+  au.play()
+  nowEl.textContent = `화자 ${it.spk} · ${it.gender ?? '?'} · ${it.age ?? '?'}세 · ${it.ability ?? '?'}`
+  scriptEl.textContent = [it.question, it.passage].filter(Boolean).join('\n\n')
+}
+
+document.getElementById('play').onclick = () => (au.paused ? au.play() : au.pause())
+document.getElementById('back5').onclick = () => { au.currentTime = Math.max(0, au.currentTime - 5) }
+document.getElementById('fwd5').onclick = () => { au.currentTime = Math.min(au.duration || 0, au.currentTime + 5) }
+au.onplay = () => { document.getElementById('play').textContent = '일시정지' }
+au.onpause = () => { document.getElementById('play').textContent = '재생' }
+au.ontimeupdate = () => {
+  timeEl.textContent = `${fmt(au.currentTime)} / ${fmt(au.duration)}`
+  seek.value = au.duration ? String((au.currentTime / au.duration) * 1000) : '0'
+}
+seek.oninput = () => { if (au.duration) au.currentTime = (Number(seek.value) / 1000) * au.duration }
+document.getElementById('q').oninput = rebuild
+document.getElementById('gender').onchange = rebuild
+document.getElementById('ability').onchange = rebuild
+document.getElementById('age').onchange = rebuild
+document.getElementById('shuffle').onclick = () => {
+  order.sort(() => Math.random() - 0.5)
+  shown = 0
+  list.innerHTML = ''
+  renderMore()
+}
+document.getElementById('more').onclick = renderMore
+window.addEventListener('scroll', () => {
+  if (shown >= order.length) return
+  if (window.innerHeight + window.scrollY > document.body.offsetHeight - 600) renderMore()
+})
+</script>
+</body>
+</html>
