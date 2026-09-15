@@ -26,11 +26,13 @@ const MODE_100 = '100'
 const MODE_EXP_LDA = 'exp_lda'
 const MODE_XV100 = 'xv100'
 const MODE_EXP_LOGIT = 'exp_logit'
+const MODE_LOW_VAD = 'low_vad'
 const MODES = {
   [MODE_100]: { view: 'ecapa/lang2d_05', encoder: 'ecapa', label: 'ECAPA LDA · 100발화 (0.5s)' },
   [MODE_EXP_LDA]: { view: 'ecapa/lang2d_full_05vad', encoder: 'ecapa', label: 'ECAPA LDA · 전체DB (0.5s·VAD)' },
   [MODE_XV100]: { view: 'xvector/lang2d_100_05', encoder: 'xvector', label: 'x-vector LDA · 100발화 (0.5s)' },
   [MODE_EXP_LOGIT]: { view: 'xvector/lang2d_logit_05vad', encoder: 'xvector', label: 'x-vector LogReg · 전체DB (0.5s·VAD)' },
+  [MODE_LOW_VAD]: { view: 'ecapa/lang2d_low_05vad', encoder: 'ecapa', label: 'ECAPA LDA · LOW추가 (0.5s·VAD)' },
 } as const
 const XMIN = -1.12
 const XMAX = 1.12
