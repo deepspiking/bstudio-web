@@ -12,6 +12,8 @@ interface Frame {
   t: number
   x: number
   y: number
+  /** 서버 Silero VAD 확률 (0~1). 없으면 프런트 에너지 판정으로 대체한다 */
+  vad?: number
 }
 interface Capture {
   audio: Float32Array
@@ -637,7 +639,7 @@ export default function OralTractLive() {
     const shifted = cap.frames
       .map((f) => ({ ...f, t: f.t - (cap.base - 1) * (HOP_MS / 1000) }))
       .filter((f) => f.t >= 0)
-      .filter((f) => frameVoiced(audio, f.t))
+      .filter((f) => (f.vad != null ? f.vad >= 0.5 : frameVoiced(audio, f.t)))
     const runs = runsOf(shifted)
     if (runs.length === 0) return
     const segments: Capture[] = []
@@ -759,6 +761,7 @@ export default function OralTractLive() {
           windowSec: WINDOW_SEC,
           hopMs: HOP_MS,
           gateDbfs: VAD_DBFS,
+          vad: 'silero',
           minWindowSpeech: 0.0,
         }),
       )
@@ -771,7 +774,12 @@ export default function OralTractLive() {
         if (msg.type === 'point') {
           const c = msg.coords?.[viewKeyRef.current]
           if (c) {
-            const f: Frame = { t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000), x: c[0], y: 0 }
+            const f: Frame = {
+              t: (msg.chunk ?? cap.frames.length) * (HOP_MS / 1000),
+              x: c[0],
+              y: 0,
+              vad: typeof msg.vad === 'number' ? msg.vad : undefined,
+            }
             cap.frames.push(f)
             liveRef.current.x = c[0]
             liveRef.current.y = 0
