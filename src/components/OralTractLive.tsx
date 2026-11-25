@@ -91,6 +91,17 @@ class MicProcessor extends AudioWorkletProcessor {
 registerProcessor('mic-processor', MicProcessor);
 `
 
+/** 프레임이 가리키는 0.5s 창의 RMS가 VAD 기준 미만이면 무음으로 본다 (t = 창 끝 시각) */
+function frameVoiced(audio: Float32Array, tEnd: number): boolean {
+  const a = Math.max(0, Math.floor((tEnd - WINDOW_SEC) * SAMPLE_RATE))
+  const b = Math.min(audio.length, Math.ceil(tEnd * SAMPLE_RATE))
+  if (b - a < SAMPLE_RATE * 0.05) return false
+  let s = 0
+  for (let i = a; i < b; i++) s += audio[i] * audio[i]
+  const rms = Math.sqrt(s / (b - a))
+  return 20 * Math.log10(Math.max(rms, 1e-6)) >= VAD_DBFS
+}
+
 /** VAD 끊김(GAP_SEC 초과)마다 잘라 발화 연속 구간들로 나눈다 */
 function runsOf(frames: Frame[]): Frame[][] {
   const runs: Frame[][] = []
@@ -626,6 +637,7 @@ export default function OralTractLive() {
     const shifted = cap.frames
       .map((f) => ({ ...f, t: f.t - (cap.base - 1) * (HOP_MS / 1000) }))
       .filter((f) => f.t >= 0)
+      .filter((f) => frameVoiced(audio, f.t))
     const runs = runsOf(shifted)
     if (runs.length === 0) return
     const segments: Capture[] = []
