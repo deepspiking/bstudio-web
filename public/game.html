@@ -3,515 +3,473 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>VOICE BREAKER — 영어로 깨는 로그라이크</title>
+<title>VOX DUNGEON — 발음으로 싸우는 픽셀 로그라이크</title>
 <link rel="icon" href="data:," />
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    margin: 0; background: radial-gradient(1200px 700px at 50% -10%, #141c2a 0%, #0a0d13 60%);
-    color: #e6ebf3; font: 13px/1.5 ui-monospace, 'SFMono-Regular', Menlo, monospace;
-    display: flex; flex-direction: column; align-items: center;
+    margin: 0; background: #07090d; color: #dbe4f0;
+    display: flex; align-items: center; justify-content: center;
+    font: 12px/1.5 ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    overflow: hidden;
   }
-  header { padding: 14px 16px 6px; text-align: center; }
-  h1 { margin: 0; font-size: 17px; letter-spacing: 2px; color: #cfd8ff; }
-  h1 small { display: block; font-size: 11px; letter-spacing: 1px; color: #6f7b90; margin-top: 4px; font-weight: 400; }
-  .hud {
-    display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: center;
-    padding: 8px 12px; font-size: 12px; color: #aeb8c8;
+  #stage { position: relative; width: min(96vw, 1080px); aspect-ratio: 16 / 9; }
+  canvas {
+    width: 100%; height: 100%; display: block; border-radius: 6px;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    box-shadow: 0 0 0 1px #1b2230, 0 30px 80px rgba(0,0,0,0.7);
+    background: #0b0d12;
   }
-  .hud b { color: #fff; font-weight: 600; }
-  .hearts { letter-spacing: 2px; color: #ff5d6c; }
-  .shield { color: #5cc8ff; letter-spacing: 2px; }
-  .wrap { position: relative; margin: 4px auto 0; }
-  canvas { display: block; border: 1px solid #232c3b; border-radius: 10px; background: #0b0f16; image-rendering: pixelated; }
-  .meter { width: min(760px, 94vw); margin: 12px auto 0; }
-  .meter .bar { position: relative; height: 18px; border-radius: 9px; overflow: hidden; border: 1px solid #263041;
-    background: linear-gradient(90deg, #123a2a 0%, #16202c 34%, #16202c 66%, #2a1830 100%); }
-  .meter .zone { position: absolute; top: 0; bottom: 0; }
-  .meter .zone.atk { left: 0; width: 34%; background: rgba(53, 208, 143, 0.16); }
-  .meter .zone.def { right: 0; width: 34%; background: rgba(92, 200, 255, 0.12); }
-  .meter .needle { position: absolute; top: -3px; bottom: -3px; width: 3px; background: #fff; box-shadow: 0 0 10px #fff; transition: left 90ms linear; }
-  .meter .labels { display: flex; justify-content: space-between; font-size: 10px; color: #6f7b90; margin-top: 4px; }
-  .voice { display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 8px; font-size: 12px; min-height: 20px; }
-  .pill { padding: 2px 9px; border-radius: 999px; border: 1px solid #2b3648; color: #9aa6ba; }
-  .pill.en { color: #57e0a4; border-color: #2b6f55; background: #0f2a20; }
-  .pill.ko { color: #6cc7ff; border-color: #2b5670; background: #0e2230; }
-  .log { width: min(760px, 94vw); height: 44px; margin: 8px auto 20px; overflow: hidden; color: #8b96a8; font-size: 11px; }
-  .log div { opacity: 0.85; }
   .overlay {
-    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(5, 8, 12, 0.82); backdrop-filter: blur(3px); z-index: 10;
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(6, 8, 12, 0.86); backdrop-filter: blur(2px); border-radius: 6px; z-index: 5;
   }
-  .overlay .card { max-width: 520px; padding: 26px 28px; border: 1px solid #2a3547; border-radius: 14px; background: #101620; text-align: center; }
-  .overlay h2 { margin: 0 0 8px; font-size: 18px; color: #dfe7ff; }
-  .overlay p { margin: 6px 0; color: #98a4b8; font-size: 12px; }
-  .overlay .key { color: #ffd479; }
-  .overlay button {
-    margin-top: 14px; padding: 10px 22px; border-radius: 10px; border: 1px solid #4658d8;
-    background: #3446cf; color: #fff; font: inherit; font-size: 13px; cursor: pointer;
+  .card {
+    width: min(620px, 90%); padding: 26px 26px 22px; text-align: center;
+    border: 1px solid #2b3444; background: linear-gradient(180deg, #0e131b 0%, #0a0e15 100%);
+    box-shadow: inset 0 0 60px rgba(30,140,160,0.08);
   }
-  .overlay button:hover { background: #4053e6; }
+  .card h1 { margin: 0; font-size: 22px; letter-spacing: 5px; color: #eaf2ff; }
+  .card h1 span { color: #f0580e; }
+  .card .tag { margin: 6px 0 14px; font-size: 10px; letter-spacing: 3px; color: #6f7f95; text-transform: uppercase; }
+  .card p { margin: 7px 0; color: #9fadc2; font-size: 12px; }
+  .card b { color: #e8eefb; }
+  .card .key { color: #ffd479; }
+  .card .en { color: #57e0a4; }
+  .card .ko { color: #6cc7ff; }
+  .card button {
+    margin-top: 16px; padding: 11px 26px; border: 1px solid #f0580e; background: #f0580e;
+    color: #160a04; font: inherit; font-weight: 700; letter-spacing: 2px; cursor: pointer;
+  }
+  .card button:hover { background: #ff6a1f; }
+  .err { color: #ff7a85; font-size: 11px; min-height: 14px; margin-top: 8px; }
   .hidden { display: none !important; }
-  .err { color: #ff7a85; }
 </style>
 </head>
 <body>
-<header>
-  <h1>VOICE BREAKER<small>짧은 영어를 말해 벽과 몬스터를 부순다 · ECAPA LDA (1s)</small></h1>
-</header>
-
-<div class="hud">
-  <span>층 <b id="depth">1</b></span>
-  <span>HP <span class="hearts" id="hp">♥♥♥♥♥♥</span></span>
-  <span>방어막 <span class="shield" id="shield">◇◇◇</span></span>
-  <span>처치 <b id="kills">0</b></span>
-  <span>점수 <b id="score">0</b></span>
-  <span id="conn" class="pill">연결 중…</span>
-</div>
-
-<div class="wrap">
-  <canvas id="cv" width="608" height="416"></canvas>
-</div>
-
-<div class="meter">
-  <div class="bar">
-    <div class="zone atk"></div>
-    <div class="zone def"></div>
-    <div class="needle" id="needle" style="left: 50%"></div>
-  </div>
-  <div class="labels"><span>ENGLISH (공격)</span><span>한국어 (방어)</span></div>
-</div>
-
-<div class="voice">
-  <span class="pill" id="verdict">대기</span>
-  <span id="scoreNow" style="color:#8b96a8">점수 —</span>
-  <span id="vadNow" style="color:#5d6a7d">VAD —</span>
-</div>
-<div class="log" id="log"></div>
-
-<div class="overlay" id="overlay">
-  <div class="card">
-    <h2>VOICE BREAKER</h2>
-    <p><span class="key">영어</span>로 짧게 말하면 → 가장 가까운 몬스터/벽을 부숩니다. (강하게 말할수록 큰 피해)</p>
-    <p><span class="key">한국어</span>로 말하면 → 방어막 충전 (최대 3)</p>
-    <p>이동 <span class="key">WASD / 방향키</span> · 다시 시작 <span class="key">R</span></p>
-    <p id="ovMsg" style="color:#ff9aa2"></p>
-    <button id="startBtn">마이크 켜고 시작</button>
+<div id="stage">
+  <canvas id="cv" width="480" height="270"></canvas>
+  <div class="overlay" id="ov">
+    <div class="card">
+      <h1>VOX <span>DUNGEON</span></h1>
+      <div class="tag" id="tagLine">turn-based pixel roguelike · pronunciation combat</div>
+      <p>매 턴 <b>영어 단어</b>가 제시됩니다. 그 단어를 <b>또박또박 발음</b>하세요.</p>
+      <p><span class="en">영어 쪽 점수</span>가 높으면 공격 성공 · <span class="ko">한국어 쪽</span>이면 주문 실패(반동 피해)</p>
+      <p>이동 <span class="key">WASD/방향키</span> · 공격 <span class="key">A</span> · 방어 <span class="key">G</span> · 다시 시작 <span class="key">R</span></p>
+      <p style="color:#6f7f95">ECAPA 1s LDA · 발음이 영어 음향에 가까울수록 강한 일격</p>
+      <button id="startBtn">마이크 켜고 입장</button>
+      <div class="err" id="err"></div>
+    </div>
   </div>
 </div>
 
 <script>
-const TILE = 32
-const W = 19, H = 13
+// ---------------------------------------------------------------- constants
+const VW = 480, VH = 270
+const TILE = 16
+const MAP_W = 30, MAP_H = 13
+const MAP_X = 0, MAP_Y = 26
 const VIEW_KEY = 'ecapa/lang2d'
-const ATTACK_X = -0.3      // x <= -0.3 → 영어(공격)
-const DEFEND_X = 0.3       // x >= +0.3 → 한국어(방어)
-const ATTACK_CD = 520
-const DEFEND_CD = 1200
+const CAST_MS = 2600
+const OK_SCORE = 55
+const CRIT_SCORE = 88
+const FIZZLE_SCORE = 35
 
+const C = {
+  bg: '#0b0d12', floor: '#232d40', floorDot: '#33425c', wall: '#4a5872', wallHi: '#6a7c9c',
+  wallLo: '#2a3446', ink: '#eef4ff', dim: '#9aa9c0', faint: '#4c5a70',
+  orange: '#f0580e', teal: '#1e8ca0', green: '#57e0a4', red: '#ff5d6c', blue: '#6cc7ff',
+  gold: '#ffd479', purple: '#c792ea', white: '#ffffff',
+}
+
+const WORDS = {
+  attack: ['BREAK', 'SLASH', 'PIERCE', 'BLAST', 'CRUSH', 'STRIKE', 'THUNDER'],
+  guard: ['SHIELD', 'ARMOR', 'WARD', 'HOLD'],
+}
+
+// ---------------------------------------------------------------- canvas
 const cv = document.getElementById('cv')
 const ctx = cv.getContext('2d')
-const dpr = Math.min(window.devicePixelRatio || 1, 2)
-cv.width = W * TILE * dpr
-cv.height = H * TILE * dpr
-cv.style.width = W * TILE + 'px'
-cv.style.height = H * TILE + 'px'
-ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+ctx.imageSmoothingEnabled = false
 
-const $ = (id) => document.getElementById(id)
 const rnd = (n) => Math.floor(Math.random() * n)
 const pick = (a) => a[rnd(a.length)]
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+const nowMs = () => performance.now()
+let SFX = null
+function beep(freq = 440, dur = 0.08, type = 'square', gain = 0.035) {
+  if (!SFX) return
+  const o = SFX.createOscillator(), g = SFX.createGain()
+  o.type = type; o.frequency.value = freq
+  o.connect(g).connect(SFX.destination)
+  const t = SFX.currentTime
+  g.gain.setValueAtTime(gain, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  o.start(t); o.stop(t + dur + 0.02)
+}
 
-const G = {
-  running: false, over: false, depth: 1, hp: 6, maxHp: 6, shield: 0,
-  kills: 0, score: 0, attacks: 0, shields: 0, lastScore: 50, lastX: 0,
+// ---------------------------------------------------------------- sprites
+const SPR = {
+  knight: [
+    '..hhhh..',
+    '.hhhhhh.',
+    '.hssssh.',
+    '..ssss..',
+    '.gbbbbg.',
+    '.gbbbbg.',
+    '..l..l..',
+    '..l..l..',
+  ],
+  slime: [
+    '........',
+    '..gggg..',
+    '.gggggg.',
+    'ggwggwgg',
+    'gggggggg',
+    '.gggggg.',
+    '..g..g..',
+    '........',
+  ],
+  bat: [
+    '........',
+    'p......p',
+    'pp.pp.pp',
+    'pppppppp',
+    '..pwwp..',
+    '...pp...',
+    '........',
+    '........',
+  ],
+  skeleton: [
+    '..wwww..',
+    '.w.ww.w.',
+    '..wwww..',
+    '...ww...',
+    '..wwww..',
+    '.w.ww.w.',
+    '...ww...',
+    '..w..w..',
+  ],
+  potion: [
+    '...cc...',
+    '...cc...',
+    '..cccc..',
+    '.cppppc.',
+    '.cppppc.',
+    '..cccc..',
+    '........',
+    '........',
+  ],
+  stairs: [
+    '..dddd..',
+    '..d..d..',
+    '..dddd..',
+    '..d..d..',
+    '..dddd..',
+    '..d..d..',
+    '........',
+    '........',
+  ],
+}
+const SPR_COL = {
+  h: '#c9d6e8', s: '#e8b98a', g: '#7f8ea8', b: '#4a5568', l: '#3b4456',
+  w: '#dfe7f2', p: '#c792ea', c: '#9aa7bd', d: '#7ee787',
+}
+const SPR_PAL = {
+  slime: { g: '#7ee787', w: '#eafff2' },
+  bat: { p: '#c792ea', w: '#ffffff' },
+  skeleton: { w: '#dfe7f2' },
+  potion: { c: '#9aa7bd', p: '#ff79c6' },
+  stairs: { d: '#7ee787' },
+  knight: {},
+}
+function spritePixels(name, x, y, scale, colorOf, alpha) {
+  const rows = SPR[name]
+  if (!rows) return
+  ctx.globalAlpha = alpha
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]
+    for (let c = 0; c < row.length; c++) {
+      const ch = row[c]
+      if (ch === '.' || ch === ' ') continue
+      ctx.fillStyle = colorOf(ch)
+      ctx.fillRect(x + c * scale, y + r * scale, scale, scale)
+    }
+  }
+  ctx.globalAlpha = 1
+}
+function sprite(name, x, y, scale = 2, alpha = 1, tint = null) {
+  const colorOf = (ch) => tint || (SPR_PAL[name] && SPR_PAL[name][ch]) || SPR_COL[ch] || '#fff'
+  for (const [ox, oy] of [[-scale, 0], [scale, 0], [0, -scale], [0, scale]]) {
+    spritePixels(name, x + ox, y + oy, scale, () => '#05070b', alpha * 0.85)
+  }
+  spritePixels(name, x, y, scale, colorOf, alpha)
+}
+
+// ---------------------------------------------------------------- state
+const S = {
+  scene: 'title',
+  floor: 1, hp: 10, maxHp: 10, shield: 0, kills: 0, score: 0, combo: 0,
   map: [], enemies: [], items: [], stairs: { x: 1, y: 1 },
-  px: 1, py: 1, facing: [1, 0], particles: [], floats: [], shake: 0,
-  connected: false, lastAttackAt: 0, lastDefendAt: 0, lastVerdict: '', vad: 0,
-  turn: 0,
+  px: 1, py: 1, facing: [1, 0],
+  cast: null, particles: [], floats: [], shake: 0, flash: 0, msg: '', msgT: 0,
+  voice: { connected: false, x: 0, score: 50, vad: 0, at: 0, heard: false },
+  turn: 0, t0: nowMs(), dead: false,
 }
 
-function log(msg, color) {
-  const el = document.createElement('div')
-  el.textContent = msg
-  if (color) el.style.color = color
-  $('log').prepend(el)
-  while ($('log').children.length > 3) $('log').lastChild.remove()
-}
+function msg(text, color = C.ink, t = 1600) { S.msg = text; S.msgColor = color; S.msgT = t }
 
-function floorCell(x, y) { return x >= 0 && y >= 0 && x < W && y < H && G.map[y][x] !== '#' }
-function enemyAt(x, y) { return G.enemies.find((e) => e.x === x && e.y === y) }
-function itemAt(x, y) { return G.items.find((i) => i.x === x && i.y === y) }
+function floorCell(x, y) { return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && S.map[y][x] !== '#' }
+function enemyAt(x, y) { return S.enemies.find((e) => e.x === x && e.y === y) }
+function itemAt(x, y) { return S.items.find((i) => i.x === x && i.y === y) }
 
-function newFloor(depth) {
-  G.depth = depth
-  G.map = Array.from({ length: H }, () => Array(W).fill('#'))
+function genFloor(depth) {
+  S.floor = depth
+  S.map = Array.from({ length: MAP_H }, () => Array(MAP_W).fill('#'))
   const rooms = []
-  const tries = 26
-  for (let t = 0; t < tries && rooms.length < 6; t++) {
+  for (let t = 0; t < 40 && rooms.length < 7; t++) {
     const w = 3 + rnd(4), h = 3 + rnd(3)
-    const x = 1 + rnd(W - w - 2), y = 1 + rnd(H - h - 2)
+    const x = 1 + rnd(MAP_W - w - 2), y = 1 + rnd(MAP_H - h - 2)
     const r = { x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1) }
     if (rooms.some((o) => x < o.x + o.w + 1 && x + w + 1 > o.x && y < o.y + o.h + 1 && y + h + 1 > o.y)) continue
     rooms.push(r)
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) G.map[yy][xx] = '.'
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) S.map[yy][xx] = '.'
   }
-  if (rooms.length < 2) { G.map[5][5] = '.'; rooms.push({ x: 5, y: 5, w: 3, h: 3, cx: 6, cy: 6 }) }
+  if (rooms.length < 2) { rooms.length = 0; rooms.push({ x: 3, y: 3, w: 5, h: 4, cx: 5, cy: 4 }) }
   for (let i = 1; i < rooms.length; i++) {
     const a = rooms[i - 1], b = rooms[i]
-    const hx = Math.min(a.cx, b.cx), hx2 = Math.max(a.cx, b.cx)
-    for (let x = hx; x <= hx2; x++) G.map[a.cy][x] = '.'
-    const vy = Math.min(a.cy, b.cy), vy2 = Math.max(a.cy, b.cy)
-    for (let y = vy; y <= vy2; y++) G.map[y][b.cx] = '.'
+    for (let x = Math.min(a.cx, b.cx); x <= Math.max(a.cx, b.cx); x++) S.map[a.cy][x] = '.'
+    for (let y = Math.min(a.cy, b.cy); y <= Math.max(a.cy, b.cy); y++) S.map[y][b.cx] = '.'
   }
   const first = rooms[0], last = rooms[rooms.length - 1]
-  G.px = first.cx; G.py = first.cy
-  G.stairs = { x: last.cx, y: last.cy }
-  G.map[G.stairs.y][G.stairs.x] = '>'
-
-  G.enemies = []
-  const n = 3 + depth
-  for (let i = 0; i < n; i++) {
+  S.px = first.cx; S.py = first.cy
+  S.stairs = { x: last.cx, y: last.cy }
+  S.map[S.stairs.y][S.stairs.x] = '>'
+  S.enemies = []
+  const count = 2 + Math.min(6, depth + 1)
+  for (let i = 0; i < count; i++) {
     const r = pick(rooms.slice(1))
     const x = r.x + rnd(r.w), y = r.y + rnd(r.h)
-    if ((x === G.px && y === G.py) || G.map[y][x] === '>') continue
-    if (enemyAt(x, y)) continue
-    const kind = depth >= 3 && Math.random() < 0.3 ? 'golem' : (Math.random() < 0.5 ? 'slime' : 'bat')
-    G.enemies.push({ x, y, kind, hp: kind === 'golem' ? 4 + depth : 2 + (depth >> 1), max: kind === 'golem' ? 4 + depth : 2 + (depth >> 1), hit: 0 })
+    if ((x === S.px && y === S.py) || S.map[y][x] === '>' || enemyAt(x, y)) continue
+    const roll = Math.random()
+    const kind = depth >= 3 && roll < 0.25 ? 'golem' : roll < 0.5 ? 'bat' : roll < 0.8 ? 'slime' : 'skeleton'
+    const hp = kind === 'golem' ? 10 + depth * 2 : kind === 'skeleton' ? 6 + depth : 3 + (depth >> 1)
+    S.enemies.push({ x, y, kind, hp, max: hp, hit: 0, atk: kind === 'golem' ? 3 : kind === 'skeleton' ? 2 : 1 })
   }
-  G.items = []
+  S.items = []
   for (let i = 0; i < 2; i++) {
     const r = pick(rooms)
     const x = r.x + rnd(r.w), y = r.y + rnd(r.h)
-    if (G.map[y][x] === '.' && !enemyAt(x, y) && !(x === G.px && y === G.py)) G.items.push({ x, y })
+    if (S.map[y][x] === '.' && !enemyAt(x, y) && !(x === S.px && y === S.py)) S.items.push({ x, y })
   }
-  G.particles = []; G.floats = []
-  renderHud()
-}
-
-function renderHud() {
-  $('depth').textContent = G.depth
-  $('hp').textContent = '♥'.repeat(Math.max(0, G.hp)) + '·'.repeat(Math.max(0, G.maxHp - G.hp))
-  $('shield').textContent = '◆'.repeat(G.shield) + '◇'.repeat(3 - G.shield)
-  $('kills').textContent = G.kills
-  $('score').textContent = G.score
-}
-
-function burst(x, y, color, n = 14, speed = 3.4) {
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * Math.PI * 2, s = speed * (0.4 + Math.random())
-    G.particles.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color })
-  }
-}
-function floatText(x, y, text, color) {
-  G.floats.push({ x: x + 0.5, y: y + 0.3, text, color, life: 1 })
-}
-
-function hitEnemy(e, dmg) {
-  e.hp -= dmg
-  e.hit = 1
-  G.shake = Math.min(10, G.shake + 4 + dmg)
-  burst(e.x, e.y, '#ff8a5c', 12 + dmg * 3)
-  floatText(e.x, e.y, '-' + dmg, '#ffd479')
-  if (e.hp <= 0) {
-    G.enemies = G.enemies.filter((o) => o !== e)
-    G.kills++
-    G.score += 5 + G.depth * 2
-    burst(e.x, e.y, '#ff5d6c', 26, 5)
-    log(`${e.kind} 처치! +${5 + G.depth * 2}`, '#ff9aa2')
-    renderHud()
-  }
-}
-
-function voiceAttack(score) {
-  const now = performance.now()
-  if (now - G.lastAttackAt < ATTACK_CD) return
-  G.lastAttackAt = now
-  G.attacks++
-  const dmg = Math.max(2, Math.min(7, 1 + Math.round((score - 60) / 7)))
-  let target = null, best = 1e9
-  for (const e of G.enemies) {
-    const d = Math.hypot(e.x - G.px, e.y - G.py)
-    if (d <= 6.0 && d < best) { best = d; target = e }
-  }
-  if (target) {
-    hitEnemy(target, dmg)
-    log(`ENGLISH! ${target.kind}에 ${dmg} 피해`, '#57e0a4')
-  } else {
-    const [dx, dy] = G.facing
-    let bx = G.px + dx, by = G.py + dy
-    let broke = false
-    for (let i = 0; i < 3; i++) {
-      if (G.map[by]?.[bx] === '#') {
-        G.map[by][bx] = '.'
-        burst(bx, by, '#9aa7bd', 20, 4.5)
-        G.shake = Math.min(10, G.shake + 6)
-        floatText(bx, by, 'BREAK', '#cfd8ff')
-        broke = true
-        break
-      }
-      bx += dx; by += dy
-    }
-    if (broke) log('벽을 부쉈다!', '#cfd8ff')
-    else { floatText(G.px, G.py, 'MISS', '#6f7b90'); log('허공에 외침… (몬스터/벽을 향해)', '#6f7b90') }
-  }
-  renderHud()
-}
-
-function voiceDefend() {
-  const now = performance.now()
-  if (now - G.lastDefendAt < DEFEND_CD) return
-  G.lastDefendAt = now
-  G.shields++
-  if (G.shield < 3) {
-    G.shield++
-    log('한국어 — 방어막 충전', '#6cc7ff')
-    burst(G.px, G.py, '#5cc8ff', 16, 3)
-  } else {
-    G.score += 2
-    log('방어막 최대 — 점수 +2', '#6cc7ff')
-  }
-  renderHud()
-}
-
-function movePlayer(dx, dy) {
-  if (!G.running || G.over) return
-  G.facing = [dx, dy]
-  const nx = G.px + dx, ny = G.py + dy
-  if (floorCell(nx, ny)) {
-    const e = enemyAt(nx, ny)
-    if (e) { // 몸으로 밀치기: 약한 피해
-      hitEnemy(e, 1)
-    } else {
-      G.px = nx; G.py = ny
-    }
-    const it = itemAt(nx, ny)
-    if (it) {
-      G.items = G.items.filter((o) => o !== it)
-      G.hp = Math.min(G.maxHp, G.hp + 2)
-      log('회복 물약 +2 HP', '#57e0a4')
-      renderHud()
-    }
-    if (G.px === G.stairs.x && G.py === G.stairs.y) {
-      G.score += 10 + G.depth * 3
-      log(`계단! ${G.depth + 1}층으로`, '#cfd8ff')
-      newFloor(G.depth + 1)
-      return
-    }
-    enemiesAct()
-    G.turn++
-  }
-}
-
-function enemiesAct() {
-  for (const e of G.enemies) {
-    const d = Math.hypot(e.x - G.px, e.y - G.py)
-    if (d > 8) continue
-    if (d <= 1.5) {
-      if (G.shield > 0) {
-        G.shield--
-        log(`${e.kind}의 공격 — 방어막이 막음`, '#6cc7ff')
-      } else {
-        G.hp -= e.kind === 'golem' ? 2 : 1
-        G.shake = 10
-        burst(G.px, G.py, '#ff5d6c', 14)
-        log(`${e.kind}에게 피해!`, '#ff9aa2')
-        if (G.hp <= 0) return gameOver()
-      }
-      renderHud()
-      continue
-    }
-    const dx = Math.sign(G.px - e.x), dy = Math.sign(G.py - e.y)
-    const opts = Math.abs(G.px - e.x) > Math.abs(G.py - e.y)
-      ? [[dx, 0], [0, dy]]
-      : [[0, dy], [dx, 0]]
-    for (const [mx, my] of opts) {
-      const nx = e.x + mx, ny = e.y + my
-      if (floorCell(nx, ny) && !enemyAt(nx, ny) && !(nx === G.px && ny === G.py)) {
-        e.x = nx; e.y = ny
-        break
-      }
-    }
-  }
-}
-
-function gameOver() {
-  G.over = true; G.running = false
-  $('overlay').classList.remove('hidden')
-  $('overlay').querySelector('h2').textContent = 'GAME OVER'
-  $('ovMsg').innerHTML = `도달 <b>${G.depth}층</b> · 처치 <b>${G.kills}</b> · 점수 <b>${G.score}</b>`
-  $('startBtn').textContent = '다시 시작 (R)'
-  log('게임 오버', '#ff7a85')
+  S.particles = []; S.floats = []; S.cast = null
+  msg(`FLOOR ${depth} — 영어 단어로 싸워라`, C.teal, 2200)
 }
 
 function reset() {
-  Object.assign(G, {
-    running: true, over: false, depth: 1, hp: 6, maxHp: 6, shield: 0,
-    kills: 0, score: 0, attacks: 0, shields: 0, particles: [], floats: [], shake: 0,
-    lastAttackAt: 0, lastDefendAt: 0, turn: 0,
+  Object.assign(S, {
+    scene: 'play', dead: false, floor: 1, hp: 10, maxHp: 10, shield: 0,
+    kills: 0, score: 0, combo: 0, cast: null, particles: [], floats: [],
+    shake: 0, flash: 0, turn: 0, msg: '', msgT: 0,
   })
-  newFloor(1)
-  $('overlay').classList.add('hidden')
+  genFloor(1)
+  document.getElementById('ov').classList.add('hidden')
 }
 
-// ---------- rendering ----------
-const COL = {
-  wall: '#26303f', wallTop: '#334054', floor: '#111823', grid: '#161f2b',
-  player: '#8be9fd', stairs: '#7ee787', potion: '#ff79c6',
-  slime: '#ff6b6b', bat: '#c792ea', golem: '#ffa657',
+// ---------------------------------------------------------------- effects
+function burst(x, y, color, n = 10, sp = 40) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2
+    S.particles.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, color, size: 1 + rnd(2) })
+  }
+}
+function floatText(x, y, text, color) {
+  S.floats.push({ x: (x + 0.5) * TILE, y: (y + 0.2) * TILE, text, color, life: 1 })
 }
 
-function draw() {
-  const now = performance.now()
-  ctx.save()
-  if (G.shake > 0.2) ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake)
-  ctx.clearRect(-20, -20, W * TILE + 40, H * TILE + 40)
+// ---------------------------------------------------------------- combat
+function beginCast(kind) {
+  if (S.scene !== 'play' || S.dead || S.cast) return
+  if (kind === 'attack') {
+    const adj = S.enemies.filter((e) => Math.abs(e.x - S.px) + Math.abs(e.y - S.py) <= 1)
+    if (adj.length === 0) { msg('공격할 대상이 없습니다 — 적에게 붙으세요', C.dim); return }
+  }
+  S.cast = { kind, word: pick(WORDS[kind]), t0: nowMs(), dur: CAST_MS, best: -1, last: 50, done: false }
+  msg(`"${S.cast.word}" 라고 말하세요!`, C.gold, CAST_MS)
+}
 
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const t = G.map[y][x]
-      const px = x * TILE, py = y * TILE
-      if (t === '#') {
-        ctx.fillStyle = COL.wall; ctx.fillRect(px, py, TILE, TILE)
-        ctx.fillStyle = COL.wallTop; ctx.fillRect(px, py, TILE, 4)
-        ctx.strokeStyle = '#1b2431'; ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1)
-      } else {
-        ctx.fillStyle = COL.floor; ctx.fillRect(px, py, TILE, TILE)
-        ctx.strokeStyle = COL.grid; ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1)
+function resolveCast() {
+  const c = S.cast
+  if (!c) return
+  S.cast = null
+  const score = c.best
+  if (score < 0) { msg('무음 — 주문 실패', C.dim, 1500); if (c.kind === 'attack') backlash(); enemiesTurn(); return }
+  const wordBonus = Math.max(0, Math.floor((c.word.length - 4) / 2))
+  const comboBonus = Math.floor(Math.min(4, S.combo) / 2)
+  if (score >= CRIT_SCORE) {
+    if (c.kind === 'attack') { hitNearest(Math.round((3 + (score - CRIT_SCORE) / 6 + wordBonus + comboBonus)) * 2, true) }
+    else { S.shield = Math.min(3, S.shield + 2); floatText(S.px, S.py, 'WARD++', C.blue); S.combo++; beep(880, 0.14, 'triangle') }
+    msg(`완벽한 발음 ${score} — CRITICAL!`, C.green, 1500)
+  } else if (score >= OK_SCORE) {
+    if (c.kind === 'attack') hitNearest(2 + wordBonus + comboBonus + Math.floor((score - OK_SCORE) / 14), false)
+    else { S.shield = Math.min(3, S.shield + 1); floatText(S.px, S.py, 'WARD+', C.blue); S.combo++; beep(660, 0.1, 'triangle') }
+    msg(`발음 성공 ${score}`, C.green, 1200)
+  } else if (score >= FIZZLE_SCORE) {
+    if (c.kind === 'attack') hitNearest(1, false)
+    msg(`발음 흔들림 ${score} — 약한 일격`, C.gold, 1300)
+    S.combo = 0
+  } else {
+    msg(`한국어 쪽 ${score} — 주문 실패!`, C.red, 1500)
+    S.combo = 0
+    if (c.kind === 'attack') backlash()
+  }
+  enemiesTurn()
+}
+
+function hitNearest(dmg, crit) {
+  const adj = S.enemies.filter((e) => Math.abs(e.x - S.px) + Math.abs(e.y - S.py) <= 1)
+  const e = adj[0]
+  if (!e) return
+  e.hp -= dmg
+  e.hit = 1
+  S.shake = Math.min(6, S.shake + (crit ? 5 : 3))
+  S.flash = crit ? 0.5 : 0.22
+  burst(e.x, e.y, crit ? C.gold : C.orange, crit ? 26 : 12, crit ? 70 : 45)
+  floatText(e.x, e.y, '-' + dmg, crit ? C.gold : C.orange)
+  beep(crit ? 620 : 240, crit ? 0.14 : 0.07, crit ? 'square' : 'triangle')
+  if (e.hp <= 0) {
+    S.enemies = S.enemies.filter((o) => o !== e)
+    S.kills++
+    S.combo++
+    S.score += (10 + S.floor * 4) * (1 + Math.min(4, S.combo) * 0.25)
+    beep(330, 0.12, 'square', 0.03)
+    burst(e.x, e.y, C.red, 30, 80)
+    msg(`${e.kind.toUpperCase()} 파괴! +${Math.round(10 + S.floor * 4)}`, C.red, 1200)
+  }
+}
+
+function backlash() {
+  beep(120, 0.16, 'sawtooth', 0.05)
+  S.hp -= 1
+  S.shake = 4
+  S.flash = 0.25
+  burst(S.px, S.py, C.red, 10, 35)
+  floatText(S.px, S.py, '-1', C.red)
+  if (S.hp <= 0) die()
+}
+
+function enemiesTurn() {
+  if (S.dead) return
+  for (const e of S.enemies) {
+    const d = Math.abs(e.x - S.px) + Math.abs(e.y - S.py)
+    if (d > 8) continue
+    if (d <= 1) {
+      if (S.shield > 0) { S.shield--; floatText(S.px, S.py, 'BLOCK', C.blue) }
+      else {
+        S.hp -= e.atk
+        S.shake = 5
+        S.flash = 0.3
+        burst(S.px, S.py, C.red, 12, 40)
+        floatText(S.px, S.py, '-' + e.atk, C.red)
+        if (S.hp <= 0) return die()
       }
+      continue
+    }
+    if (e.kind === 'golem' && S.turn % 2 === 1) continue
+    const steps = e.kind === 'bat' ? 2 : 1
+    for (let st = 0; st < steps; st++) {
+      if (Math.abs(e.x - S.px) + Math.abs(e.y - S.py) <= 1) break
+      const dx = Math.sign(S.px - e.x), dy = Math.sign(S.py - e.y)
+      const opts = Math.abs(S.px - e.x) > Math.abs(S.py - e.y) ? [[dx, 0], [0, dy]] : [[0, dy], [dx, 0]]
+      let moved = false
+      for (const [mx, my] of opts) {
+        const nx = e.x + mx, ny = e.y + my
+        if (floorCell(nx, ny) && !enemyAt(nx, ny) && !(nx === S.px && ny === S.py)) { e.x = nx; e.y = ny; moved = true; break }
+      }
+      if (!moved) break
     }
   }
-
-  // stairs
-  const sx = G.stairs.x * TILE, sy = G.stairs.y * TILE
-  ctx.fillStyle = COL.stairs
-  ctx.globalAlpha = 0.75 + 0.25 * Math.sin(now / 300)
-  ctx.font = 'bold 22px ui-monospace, monospace'
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText('>', sx + TILE / 2, sy + TILE / 2 + 1)
-  ctx.globalAlpha = 1
-
-  for (const it of G.items) {
-    const px = it.x * TILE, py = it.y * TILE
-    ctx.fillStyle = COL.potion
-    ctx.beginPath(); ctx.arc(px + TILE / 2, py + TILE / 2, 6, 0, 7); ctx.fill()
-    ctx.fillStyle = '#ffd1ec'; ctx.beginPath(); ctx.arc(px + TILE / 2 - 2, py + TILE / 2 - 2, 2, 0, 7); ctx.fill()
-  }
-
-  for (const e of G.enemies) {
-    const px = e.x * TILE, py = e.y * TILE
-    const c = COL[e.kind] || '#ff6b6b'
-    ctx.save()
-    if (e.hit > 0) ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(now / 40))
-    ctx.fillStyle = c
-    ctx.shadowColor = c; ctx.shadowBlur = 10
-    if (e.kind === 'bat') {
-      ctx.beginPath(); ctx.moveTo(px + 6, py + 20); ctx.lineTo(px + 16, py + 8); ctx.lineTo(px + 26, py + 20); ctx.closePath(); ctx.fill()
-    } else if (e.kind === 'golem') {
-      ctx.fillRect(px + 6, py + 6, 20, 20)
-    } else {
-      ctx.beginPath(); ctx.arc(px + 16, py + 17, 9, 0, 7); ctx.fill()
-    }
-    ctx.restore()
-    // hp bar
-    const w = 24 * Math.max(0, e.hp) / e.max
-    ctx.fillStyle = '#2a1420'; ctx.fillRect(px + 4, py + 27, 24, 3)
-    ctx.fillStyle = c; ctx.fillRect(px + 4, py + 27, w, 3)
-  }
-
-  // player
-  const pxx = G.px * TILE, pyy = G.py * TILE
-  ctx.save()
-  ctx.shadowColor = COL.player; ctx.shadowBlur = 14
-  ctx.fillStyle = COL.player
-  ctx.beginPath(); ctx.arc(pxx + 16, pyy + 16, 10, 0, 7); ctx.fill()
-  ctx.fillStyle = '#04121a'
-  const [fx, fy] = G.facing
-  ctx.beginPath(); ctx.arc(pxx + 16 + fx * 4, pyy + 16 + fy * 4, 2.6, 0, 7); ctx.fill()
-  ctx.restore()
-  if (G.shield > 0) {
-    ctx.strokeStyle = 'rgba(92,200,255,0.7)'; ctx.lineWidth = 2
-    ctx.beginPath(); ctx.arc(pxx + 16, pyy + 16, 15 + Math.sin(now / 250) * 1.5, 0, 7); ctx.stroke()
-  }
-
-  for (const p of G.particles) {
-    ctx.globalAlpha = Math.max(0, p.life)
-    ctx.fillStyle = p.color
-    ctx.fillRect(p.x * TILE - 2, p.y * TILE - 2, 4, 4)
-  }
-  ctx.globalAlpha = 1
-  ctx.font = 'bold 14px ui-monospace, monospace'
-  ctx.textAlign = 'center'
-  for (const f of G.floats) {
-    ctx.globalAlpha = Math.max(0, f.life)
-    ctx.fillStyle = f.color
-    ctx.fillText(f.text, f.x * TILE, f.y * TILE - (1 - f.life) * 26)
-  }
-  ctx.globalAlpha = 1
-  ctx.restore()
-
-  // physics
-  for (const p of G.particles) { p.x += p.vx * 0.02; p.y += p.vy * 0.02; p.vx *= 0.94; p.vy *= 0.94; p.life -= 0.02 }
-  G.particles = G.particles.filter((p) => p.life > 0)
-  for (const f of G.floats) f.life -= 0.012
-  G.floats = G.floats.filter((f) => f.life > 0)
-  for (const e of G.enemies) e.hit = Math.max(0, e.hit - 0.05)
-  G.shake *= 0.86
-  requestAnimationFrame(draw)
+  S.turn++
 }
-requestAnimationFrame(draw)
 
-// ---------- input ----------
-const keys = {
+function move(dx, dy) {
+  if (S.scene !== 'play' || S.dead || S.cast) return
+  S.facing = [dx, dy]
+  const nx = S.px + dx, ny = S.py + dy
+  if (!floorCell(nx, ny)) return
+  if (enemyAt(nx, ny)) { msg('적이 막고 있습니다 — A로 공격', C.dim); return }
+  S.px = nx; S.py = ny
+  const it = itemAt(nx, ny)
+  if (it) {
+    S.items = S.items.filter((o) => o !== it)
+    S.hp = Math.min(S.maxHp, S.hp + 2)
+    floatText(nx, ny, '+2', C.green)
+    msg('물약 — HP +2', C.green, 1000)
+  }
+  if (S.px === S.stairs.x && S.py === S.stairs.y) {
+    S.score += 25 + S.floor * 10
+    S.hp = Math.min(S.maxHp, S.hp + 1)
+    genFloor(S.floor + 1)
+    return
+  }
+  enemiesTurn()
+}
+
+function die() {
+  S.dead = true
+  S.scene = 'dead'
+  const best = Number(localStorage.getItem('vox_best') || 0)
+  if (S.score > best) localStorage.setItem('vox_best', String(Math.round(S.score)))
+  const bestNow = Math.max(best, Math.round(S.score))
+  const ov = document.getElementById('ov')
+  ov.classList.remove('hidden')
+  ov.querySelector('h1').innerHTML = 'YOU <span>DIED</span>'
+  ov.querySelector('.tag').textContent = `floor ${S.floor} · kills ${S.kills} · score ${Math.round(S.score)} · best ${bestNow}`
+  ov.querySelectorAll('p').forEach((p, i) => { if (i > 2) p.style.display = 'none' })
+  document.getElementById('startBtn').textContent = '다시 도전 (R)'
+}
+
+// ---------------------------------------------------------------- input
+const MOVE_KEYS = {
   ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
   w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
   W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0],
 }
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'r' || e.key === 'R') { if (!G.running) reset(); return }
-  const k = keys[e.key]
-  if (k) { e.preventDefault(); movePlayer(k[0], k[1]) }
+  if (e.key === 'r' || e.key === 'R') { if (S.scene !== 'play') reset(); return }
+  if (e.key === 'a' || e.key === 'A') { beginCast('attack'); e.preventDefault(); return }
+  if (e.key === 'g' || e.key === 'G') { beginCast('guard'); e.preventDefault(); return }
+  const k = MOVE_KEYS[e.key]
+  if (k) { e.preventDefault(); move(k[0], k[1]) }
 })
 
-// ---------- voice ----------
-let audio = null
+// ---------------------------------------------------------------- voice
 async function startVoice() {
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/live`)
   ws.binaryType = 'arraybuffer'
-  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = () => rej(new Error('live 서버 연결 실패')) })
+  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = () => rej(new Error('live 서버에 연결할 수 없습니다')) })
   ws.send(JSON.stringify({ encoder: 'ecapa', windowSec: 1.0, hopMs: 100, gateDbfs: -45, vad: 'silero', minWindowSpeech: 0 }))
-  G.connected = true
-  $('conn').textContent = '연결됨'; $('conn').className = 'pill en'
+  S.voice.connected = true
 
   ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data)
-    if (msg.type === 'ready') { log('준비 완료 — 영어로 말해보세요', '#57e0a4'); return }
-    if (msg.type === 'idle') { G.vad = msg.vad ?? 0; $('vadNow').textContent = 'VAD ' + (msg.vad == null ? '—' : msg.vad.toFixed(2)); return }
-    if (msg.type !== 'point') return
-    const c = msg.coords?.[VIEW_KEY]
+    const m = JSON.parse(ev.data)
+    if (m.type === 'idle') { S.voice.vad = m.vad ?? 0; return }
+    if (m.type !== 'point') return
+    const c = m.coords?.[VIEW_KEY]
     if (!c) return
     const x = c[0]
-    const score = Math.round((1 - Math.max(-1, Math.min(1, x))) * 50)
-    G.lastX = x; G.lastScore = score; G.vad = msg.vad ?? 1
-    $('needle').style.left = ((Math.max(-1, Math.min(1, x)) + 1) / 2) * 100 + '%'
-    $('scoreNow').textContent = '점수 ' + score
-    $('vadNow').textContent = 'VAD ' + (msg.vad == null ? '—' : msg.vad.toFixed(2))
-    const v = $('verdict')
-    if (x <= ATTACK_X) {
-      v.textContent = 'ENGLISH'; v.className = 'pill en'
-      if (G.running && !G.over) voiceAttack(score)
-    } else if (x >= DEFEND_X) {
-      v.textContent = '한국어'; v.className = 'pill ko'
-      if (G.running && !G.over) voiceDefend()
-    } else { v.textContent = '중립'; v.className = 'pill' }
+    const score = Math.round((1 - clamp(x, -1, 1)) * 50)
+    S.voice.x = x; S.voice.score = score; S.voice.at = nowMs(); S.voice.heard = true
+    S.voice.vad = m.vad ?? 1
+    if (S.cast) S.cast.best = Math.max(S.cast.best, score)
   }
-  ws.onclose = () => { G.connected = false; $('conn').textContent = '연결 끊김'; $('conn').className = 'pill' }
+  ws.onclose = () => { S.voice.connected = false }
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
-  const ctx = new AudioContext({ sampleRate: 16000 })
-  audio = ctx
+  const actx = new AudioContext({ sampleRate: 16000 })
+  SFX = actx
   const worklet = `
 class MicProcessor extends AudioWorkletProcessor {
   constructor(o) { super(); this.buf = new Float32Array((o && o.processorOptions && o.processorOptions.chunk) || 1600); this.n = 0 }
@@ -532,27 +490,238 @@ class MicProcessor extends AudioWorkletProcessor {
 registerProcessor('mic-processor', MicProcessor)
 `
   const url = URL.createObjectURL(new Blob([worklet], { type: 'text/javascript' }))
-  await ctx.audioWorklet.addModule(url)
+  await actx.audioWorklet.addModule(url)
   URL.revokeObjectURL(url)
-  const src = ctx.createMediaStreamSource(stream)
-  const node = new AudioWorkletNode(ctx, 'mic-processor', { processorOptions: { chunk: 1600 } })
+  const src = actx.createMediaStreamSource(stream)
+  const node = new AudioWorkletNode(actx, 'mic-processor', { processorOptions: { chunk: 1600 } })
   node.port.onmessage = (e) => { if (ws.readyState === 1) ws.send(e.data) }
   src.connect(node)
-  node.connect(ctx.createGain()).connect(ctx.destination)
+  node.connect(actx.createGain()).connect(actx.destination)
 }
 
-$('startBtn').onclick = async () => {
-  $('ovMsg').textContent = ''
-  if (!G.connected) {
-    try { await startVoice() } catch (e) { $('ovMsg').textContent = String(e.message || e); return }
+// ---------------------------------------------------------------- update/draw
+function update(dt) {
+  if (S.cast && !S.cast.done && nowMs() - S.cast.t0 >= S.cast.dur) resolveCast()
+  for (const p of S.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; p.life -= dt * 1.8 }
+  S.particles = S.particles.filter((p) => p.life > 0)
+  for (const f of S.floats) { f.y -= 18 * dt; f.life -= dt * 1.2 }
+  S.floats = S.floats.filter((f) => f.life > 0)
+  for (const e of S.enemies) e.hit = Math.max(0, e.hit - dt * 4)
+  S.shake = Math.max(0, S.shake - dt * 22)
+  S.flash = Math.max(0, S.flash - dt * 2.2)
+  if (S.msgT > 0) S.msgT -= dt * 1000
+}
+
+function px(x) { return MAP_X + x * TILE }
+function py(y) { return MAP_Y + y * TILE }
+
+function draw() {
+  const t = nowMs()
+  ctx.save()
+  if (S.shake > 0.2) ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake)
+  ctx.fillStyle = C.bg
+  ctx.fillRect(-10, -10, VW + 20, VH + 20)
+
+  // tiles
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const tx = px(x), ty = py(y)
+      if (S.map[y]?.[x] === '#') {
+        ctx.fillStyle = C.wall; ctx.fillRect(tx, ty, TILE, TILE)
+        ctx.fillStyle = C.wallHi; ctx.fillRect(tx, ty, TILE, 3)
+        ctx.fillStyle = C.wallLo; ctx.fillRect(tx, ty + TILE - 3, TILE, 3)
+        ctx.fillStyle = C.wallLo
+        ctx.fillRect(tx + 3, ty + 6, 4, 3); ctx.fillRect(tx + 10, ty + 6, 4, 3)
+        ctx.fillRect(tx + 6, ty + 11, 4, 3)
+      } else {
+        ctx.fillStyle = C.floor; ctx.fillRect(tx, ty, TILE, TILE)
+        if (((x * 7 + y * 13) % 11) === 0) { ctx.fillStyle = C.floorDot; ctx.fillRect(tx + 5, ty + 9, 2, 2) }
+      }
+    }
+  }
+
+  // stairs
+  sprite('stairs', px(S.stairs.x) + 2, py(S.stairs.y) + 2, 2, 0.7 + 0.3 * Math.sin(t / 260))
+
+  // items
+  for (const it of S.items) sprite('potion', px(it.x) + 2, py(it.y) + 2, 2, 0.9)
+
+  // enemies
+  for (const e of S.enemies) {
+    const sx = px(e.x) + 2, sy = py(e.y) + 2
+    const gc = e.kind === 'golem' ? '255,166,87' : e.kind === 'skeleton' ? '223,231,242' : e.kind === 'bat' ? '199,146,234' : '126,231,135'
+    const gg = ctx.createRadialGradient(px(e.x) + 8, py(e.y) + 8, 2, px(e.x) + 8, py(e.y) + 8, 13)
+    gg.addColorStop(0, `rgba(${gc},0.22)`); gg.addColorStop(1, `rgba(${gc},0)`)
+    ctx.fillStyle = gg; ctx.fillRect(px(e.x) - 5, py(e.y) - 5, 26, 26)
+    const bob = Math.sin(t / 240 + e.x + e.y) * 1
+    sprite(e.kind === 'bat' ? 'bat' : e.kind === 'skeleton' ? 'skeleton' : e.kind === 'golem' ? 'skeleton' : 'slime',
+      sx, sy + bob, 2, e.hit > 0 ? 0.45 : 1,
+      e.kind === 'golem' ? '#ffa657' : e.kind === 'skeleton' ? '#dfe7f2' : null)
+    // hp pips
+    const w = Math.max(0, Math.round(12 * e.hp / e.max))
+    ctx.fillStyle = '#2a1420'; ctx.fillRect(px(e.x) + 2, py(e.y) + 14, 12, 2)
+    ctx.fillStyle = C.red; ctx.fillRect(px(e.x) + 2, py(e.y) + 14, w, 2)
+  }
+
+  // player
+  const pgl = ctx.createRadialGradient(px(S.px) + 8, py(S.py) + 8, 2, px(S.px) + 8, py(S.py) + 8, 15)
+  pgl.addColorStop(0, 'rgba(139,233,253,0.28)'); pgl.addColorStop(1, 'rgba(139,233,253,0)')
+  ctx.fillStyle = pgl; ctx.fillRect(px(S.px) - 7, py(S.py) - 7, 30, 30)
+  const pxs = px(S.px) + 2, pys = py(S.py) + 2
+  const bob = Math.sin(t / 300) * 1
+  sprite('knight', pxs, pys + bob, 2, 1)
+  if (S.shield > 0) {
+    ctx.strokeStyle = `rgba(108,199,255,${0.35 + 0.25 * Math.sin(t / 200)})`
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.arc(px(S.px) + 8, py(S.py) + 8, 9 + Math.sin(t / 220), 0, 7); ctx.stroke()
+  }
+  if (S.cast) {
+    ctx.strokeStyle = `rgba(255,212,121,${0.4 + 0.3 * Math.sin(t / 90)})`
+    ctx.beginPath(); ctx.arc(px(S.px) + 8, py(S.py) + 8, 12, 0, 7); ctx.stroke()
+  }
+
+  // particles
+  for (const p of S.particles) { ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.fillRect(p.x | 0, p.y | 0, p.size, p.size) }
+  ctx.globalAlpha = 1
+  // floats
+  ctx.textAlign = 'center'
+  for (const f of S.floats) { ctx.globalAlpha = Math.max(0, f.life); ctx.fillStyle = f.color; ctx.font = 'bold 8px monospace'; ctx.fillText(f.text, f.x, f.y) }
+  ctx.globalAlpha = 1
+
+  // torch light: 플레이어 주변은 밝고 가장자리는 어둡게
+  const lx = px(S.px) + 8, ly = py(S.py) + 8
+  const lg = ctx.createRadialGradient(lx, ly, 30, lx, ly, 240)
+  lg.addColorStop(0, 'rgba(0,0,0,0)')
+  lg.addColorStop(0.6, 'rgba(0,0,0,0.10)')
+  lg.addColorStop(1, 'rgba(0,0,0,0.34)')
+  ctx.fillStyle = lg
+  ctx.fillRect(0, MAP_Y, VW, MAP_H * TILE)
+
+  // 발성 중 단어를 머리 위에 띄운다
+  if (S.cast) {
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 9px monospace'
+    const wx = px(S.px) + 8, wy = Math.max(MAP_Y + 9, py(S.py) - 3)
+    ctx.fillStyle = '#05070b'
+    ctx.fillText(S.cast.word, wx + 1, wy + 1)
+    ctx.fillStyle = C.gold
+    ctx.fillText(S.cast.word, wx, wy)
+  }
+  ctx.restore()
+
+  // ---------------- HUD (top bar)
+  ctx.fillStyle = 'rgba(8,11,16,0.94)'
+  ctx.fillRect(0, 0, VW, 26)
+  ctx.fillStyle = '#2b3444'; ctx.fillRect(0, 26, VW, 1)
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+  ctx.font = 'bold 9px monospace'
+  // hp
+  let hx = 6
+  for (let i = 0; i < S.maxHp; i++) {
+    ctx.fillStyle = i < S.hp ? C.red : '#2a2f3c'
+    ctx.fillRect(hx, 8, 5, 7)
+    hx += 7
+  }
+  ctx.fillStyle = C.teal; ctx.fillText(`FLOOR ${S.floor}`, 96, 13)
+  ctx.fillStyle = C.ink; ctx.fillText(`KILL ${S.kills}`, 158, 13)
+  ctx.fillStyle = C.gold; ctx.fillText(`SCORE ${Math.round(S.score)}`, 210, 13)
+  if (S.combo > 1) { ctx.fillStyle = C.orange; ctx.fillText(`x${(1 + Math.min(4, S.combo) * 0.25).toFixed(2)}`, 300, 13) }
+  // shield
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = i < S.shield ? C.blue : '#2a3140'; ctx.fillRect(340 + i * 7, 9, 5, 7) }
+  // voice status
+  ctx.textAlign = 'right'
+  ctx.fillStyle = S.voice.connected ? (S.voice.vad >= 0.5 ? C.green : C.dim) : C.red
+  ctx.fillText(S.voice.connected ? `MIC ${S.voice.vad.toFixed(2)}` : 'MIC OFF', VW - 6, 13)
+
+  // ---------------- bottom bar
+  const by = VH - 42
+  ctx.fillStyle = 'rgba(8,11,16,0.94)'
+  ctx.fillRect(0, by, VW, 42)
+  ctx.fillStyle = '#2b3444'; ctx.fillRect(0, by, VW, 1)
+
+  const bx0 = 56, bw = VW - 112
+  if (S.cast) {
+    const c = S.cast
+    const left = Math.max(0, 1 - (t - c.t0) / c.dur)
+    ctx.textAlign = 'center'
+    ctx.fillStyle = C.gold
+    ctx.font = 'bold 15px monospace'
+    ctx.fillText(c.word, VW / 2, by + 13)
+    // timer
+    ctx.font = '7px monospace'; ctx.textAlign = 'left'; ctx.fillStyle = C.faint
+    ctx.fillText('TIME', 8, by + 24)
+    ctx.fillStyle = '#1c2433'; ctx.fillRect(bx0, by + 21, bw, 4)
+    ctx.fillStyle = C.orange; ctx.fillRect(bx0, by + 21, bw * left, 4)
+    // pronunciation score
+    const sc = c.best < 0 ? 50 : c.best
+    ctx.fillStyle = C.faint; ctx.fillText('PRON', 8, by + 34)
+    ctx.fillStyle = '#1c2433'; ctx.fillRect(bx0, by + 31, bw, 4)
+    ctx.fillStyle = sc >= OK_SCORE ? C.green : sc >= FIZZLE_SCORE ? C.gold : C.red
+    ctx.fillRect(bx0, by + 31, bw * (sc / 100), 4)
+    ctx.textAlign = 'right'; ctx.fillStyle = sc >= OK_SCORE ? C.green : C.dim
+    ctx.fillText(`${c.best < 0 ? '—' : c.best}`, VW - 8, by + 24)
+    ctx.fillText(sc >= OK_SCORE ? 'ENGLISH OK' : sc >= FIZZLE_SCORE ? 'WEAK' : 'KO SIDE', VW - 8, by + 34)
+    ctx.textAlign = 'center'; ctx.fillStyle = C.faint
+    ctx.fillText('KO ◀', bx0 + 12, by + 39); ctx.fillText('▶ EN', bx0 + bw - 12, by + 39)
+  } else {
+    ctx.textAlign = 'center'
+    if (S.msgT > 0) {
+      ctx.fillStyle = S.msgColor || C.ink; ctx.font = 'bold 9px monospace'
+      ctx.fillText(S.msg, VW / 2, by + 13)
+    } else {
+      ctx.fillStyle = C.faint; ctx.font = '8px monospace'
+      ctx.fillText('A 공격 · G 방어 · WASD 이동', VW / 2, by + 13)
+    }
+    const sc = S.voice.score
+    ctx.textAlign = 'left'; ctx.fillStyle = C.faint; ctx.font = '7px monospace'
+    ctx.fillText('LIVE', 8, by + 30)
+    ctx.fillStyle = '#1c2433'; ctx.fillRect(bx0, by + 27, bw, 4)
+    ctx.fillStyle = sc >= OK_SCORE ? C.green : sc >= FIZZLE_SCORE ? C.gold : C.red
+    ctx.fillRect(bx0, by + 27, bw * (sc / 100), 4)
+    ctx.textAlign = 'right'; ctx.fillStyle = C.dim
+    ctx.fillText(`EN ${sc}`, VW - 8, by + 30)
+    ctx.textAlign = 'center'; ctx.fillStyle = C.faint
+    ctx.fillText('영어 발음이 초록존에 들어오게', VW / 2, by + 38)
+  }
+
+  // flash / vignette / grain / scanlines
+  if (S.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${S.flash * 0.5})`; ctx.fillRect(0, 0, VW, VH) }
+  const vg = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.35, VW / 2, VH / 2, VH * 0.95)
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.32)')
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, VW, VH)
+  ctx.fillStyle = 'rgba(255,255,255,0.025)'
+  for (let y = 0; y < VH; y += 3) ctx.fillRect(0, y, VW, 1)
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'
+  for (let i = 0; i < 40; i++) ctx.fillRect(rnd(VW), rnd(VH), 1, 1)
+}
+
+let last = nowMs()
+function loop() {
+  const t = nowMs()
+  const dt = Math.min(0.05, (t - last) / 1000)
+  last = t
+  update(dt)
+  draw()
+  requestAnimationFrame(loop)
+}
+
+// ---------------------------------------------------------------- boot
+document.getElementById('startBtn').onclick = async () => {
+  const err = document.getElementById('err')
+  err.textContent = ''
+  if (!S.voice.connected) {
+    try { await startVoice() } catch (e) { err.textContent = String(e.message || e); return }
   }
   reset()
-  log('1층 — 영어로 벽과 몬스터를 부숴라', '#cfd8ff')
 }
-
-window.__vb = G
-newFloor(1)
-G.running = false
+const best0 = Number(localStorage.getItem('vox_best') || 0)
+if (best0 > 0) document.getElementById('tagLine').textContent += ` · best ${best0}`
+window.__vb = S
+window.__vbCast = beginCast
+window.__vbResolve = () => { if (S.cast) { S.cast.dur = 1; S.cast.t0 = 0 } }
+genFloor(1)
+S.scene = 'title'
+requestAnimationFrame(loop)
 </script>
 </body>
 </html>
