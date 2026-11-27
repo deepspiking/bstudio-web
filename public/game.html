@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VOICE BREAKER — 영어로 깨는 로그라이크</title>
+<link rel="icon" href="data:," />
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: radial-gradient(1200px 700px at 50% -10%, #141c2a 0%, #0a0d13 60%);
+    color: #e6ebf3; font: 13px/1.5 ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  header { padding: 14px 16px 6px; text-align: center; }
+  h1 { margin: 0; font-size: 17px; letter-spacing: 2px; color: #cfd8ff; }
+  h1 small { display: block; font-size: 11px; letter-spacing: 1px; color: #6f7b90; margin-top: 4px; font-weight: 400; }
+  .hud {
+    display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: center;
+    padding: 8px 12px; font-size: 12px; color: #aeb8c8;
+  }
+  .hud b { color: #fff; font-weight: 600; }
+  .hearts { letter-spacing: 2px; color: #ff5d6c; }
+  .shield { color: #5cc8ff; letter-spacing: 2px; }
+  .wrap { position: relative; margin: 4px auto 0; }
+  canvas { display: block; border: 1px solid #232c3b; border-radius: 10px; background: #0b0f16; image-rendering: pixelated; }
+  .meter { width: min(760px, 94vw); margin: 12px auto 0; }
+  .meter .bar { position: relative; height: 18px; border-radius: 9px; overflow: hidden; border: 1px solid #263041;
+    background: linear-gradient(90deg, #123a2a 0%, #16202c 34%, #16202c 66%, #2a1830 100%); }
+  .meter .zone { position: absolute; top: 0; bottom: 0; }
+  .meter .zone.atk { left: 0; width: 34%; background: rgba(53, 208, 143, 0.16); }
+  .meter .zone.def { right: 0; width: 34%; background: rgba(92, 200, 255, 0.12); }
+  .meter .needle { position: absolute; top: -3px; bottom: -3px; width: 3px; background: #fff; box-shadow: 0 0 10px #fff; transition: left 90ms linear; }
+  .meter .labels { display: flex; justify-content: space-between; font-size: 10px; color: #6f7b90; margin-top: 4px; }
+  .voice { display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 8px; font-size: 12px; min-height: 20px; }
+  .pill { padding: 2px 9px; border-radius: 999px; border: 1px solid #2b3648; color: #9aa6ba; }
+  .pill.en { color: #57e0a4; border-color: #2b6f55; background: #0f2a20; }
+  .pill.ko { color: #6cc7ff; border-color: #2b5670; background: #0e2230; }
+  .log { width: min(760px, 94vw); height: 44px; margin: 8px auto 20px; overflow: hidden; color: #8b96a8; font-size: 11px; }
+  .log div { opacity: 0.85; }
+  .overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(5, 8, 12, 0.82); backdrop-filter: blur(3px); z-index: 10;
+  }
+  .overlay .card { max-width: 520px; padding: 26px 28px; border: 1px solid #2a3547; border-radius: 14px; background: #101620; text-align: center; }
+  .overlay h2 { margin: 0 0 8px; font-size: 18px; color: #dfe7ff; }
+  .overlay p { margin: 6px 0; color: #98a4b8; font-size: 12px; }
+  .overlay .key { color: #ffd479; }
+  .overlay button {
+    margin-top: 14px; padding: 10px 22px; border-radius: 10px; border: 1px solid #4658d8;
+    background: #3446cf; color: #fff; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .overlay button:hover { background: #4053e6; }
+  .hidden { display: none !important; }
+  .err { color: #ff7a85; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VOICE BREAKER<small>짧은 영어를 말해 벽과 몬스터를 부순다 · ECAPA LDA (1s)</small></h1>
+</header>
+
+<div class="hud">
+  <span>층 <b id="depth">1</b></span>
+  <span>HP <span class="hearts" id="hp">♥♥♥♥♥♥</span></span>
+  <span>방어막 <span class="shield" id="shield">◇◇◇</span></span>
+  <span>처치 <b id="kills">0</b></span>
+  <span>점수 <b id="score">0</b></span>
+  <span id="conn" class="pill">연결 중…</span>
+</div>
+
+<div class="wrap">
+  <canvas id="cv" width="608" height="416"></canvas>
+</div>
+
+<div class="meter">
+  <div class="bar">
+    <div class="zone atk"></div>
+    <div class="zone def"></div>
+    <div class="needle" id="needle" style="left: 50%"></div>
+  </div>
+  <div class="labels"><span>ENGLISH (공격)</span><span>한국어 (방어)</span></div>
+</div>
+
+<div class="voice">
+  <span class="pill" id="verdict">대기</span>
+  <span id="scoreNow" style="color:#8b96a8">점수 —</span>
+  <span id="vadNow" style="color:#5d6a7d">VAD —</span>
+</div>
+<div class="log" id="log"></div>
+
+<div class="overlay" id="overlay">
+  <div class="card">
+    <h2>VOICE BREAKER</h2>
+    <p><span class="key">영어</span>로 짧게 말하면 → 가장 가까운 몬스터/벽을 부숩니다. (강하게 말할수록 큰 피해)</p>
+    <p><span class="key">한국어</span>로 말하면 → 방어막 충전 (최대 3)</p>
+    <p>이동 <span class="key">WASD / 방향키</span> · 다시 시작 <span class="key">R</span></p>
+    <p id="ovMsg" style="color:#ff9aa2"></p>
+    <button id="startBtn">마이크 켜고 시작</button>
+  </div>
+</div>
+
+<script>
+const TILE = 32
+const W = 19, H = 13
+const VIEW_KEY = 'ecapa/lang2d'
+const ATTACK_X = -0.3      // x <= -0.3 → 영어(공격)
+const DEFEND_X = 0.3       // x >= +0.3 → 한국어(방어)
+const ATTACK_CD = 520
+const DEFEND_CD = 1200
+
+const cv = document.getElementById('cv')
+const ctx = cv.getContext('2d')
+const dpr = Math.min(window.devicePixelRatio || 1, 2)
+cv.width = W * TILE * dpr
+cv.height = H * TILE * dpr
+cv.style.width = W * TILE + 'px'
+cv.style.height = H * TILE + 'px'
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+const $ = (id) => document.getElementById(id)
+const rnd = (n) => Math.floor(Math.random() * n)
+const pick = (a) => a[rnd(a.length)]
+
+const G = {
+  running: false, over: false, depth: 1, hp: 6, maxHp: 6, shield: 0,
+  kills: 0, score: 0, attacks: 0, shields: 0, lastScore: 50, lastX: 0,
+  map: [], enemies: [], items: [], stairs: { x: 1, y: 1 },
+  px: 1, py: 1, facing: [1, 0], particles: [], floats: [], shake: 0,
+  connected: false, lastAttackAt: 0, lastDefendAt: 0, lastVerdict: '', vad: 0,
+  turn: 0,
+}
+
+function log(msg, color) {
+  const el = document.createElement('div')
+  el.textContent = msg
+  if (color) el.style.color = color
+  $('log').prepend(el)
+  while ($('log').children.length > 3) $('log').lastChild.remove()
+}
+
+function floorCell(x, y) { return x >= 0 && y >= 0 && x < W && y < H && G.map[y][x] !== '#' }
+function enemyAt(x, y) { return G.enemies.find((e) => e.x === x && e.y === y) }
+function itemAt(x, y) { return G.items.find((i) => i.x === x && i.y === y) }
+
+function newFloor(depth) {
+  G.depth = depth
+  G.map = Array.from({ length: H }, () => Array(W).fill('#'))
+  const rooms = []
+  const tries = 26
+  for (let t = 0; t < tries && rooms.length < 6; t++) {
+    const w = 3 + rnd(4), h = 3 + rnd(3)
+    const x = 1 + rnd(W - w - 2), y = 1 + rnd(H - h - 2)
+    const r = { x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1) }
+    if (rooms.some((o) => x < o.x + o.w + 1 && x + w + 1 > o.x && y < o.y + o.h + 1 && y + h + 1 > o.y)) continue
+    rooms.push(r)
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) G.map[yy][xx] = '.'
+  }
+  if (rooms.length < 2) { G.map[5][5] = '.'; rooms.push({ x: 5, y: 5, w: 3, h: 3, cx: 6, cy: 6 }) }
+  for (let i = 1; i < rooms.length; i++) {
+    const a = rooms[i - 1], b = rooms[i]
+    const hx = Math.min(a.cx, b.cx), hx2 = Math.max(a.cx, b.cx)
+    for (let x = hx; x <= hx2; x++) G.map[a.cy][x] = '.'
+    const vy = Math.min(a.cy, b.cy), vy2 = Math.max(a.cy, b.cy)
+    for (let y = vy; y <= vy2; y++) G.map[y][b.cx] = '.'
+  }
+  const first = rooms[0], last = rooms[rooms.length - 1]
+  G.px = first.cx; G.py = first.cy
+  G.stairs = { x: last.cx, y: last.cy }
+  G.map[G.stairs.y][G.stairs.x] = '>'
+
+  G.enemies = []
+  const n = 3 + depth
+  for (let i = 0; i < n; i++) {
+    const r = pick(rooms.slice(1))
+    const x = r.x + rnd(r.w), y = r.y + rnd(r.h)
+    if ((x === G.px && y === G.py) || G.map[y][x] === '>') continue
+    if (enemyAt(x, y)) continue
+    const kind = depth >= 3 && Math.random() < 0.3 ? 'golem' : (Math.random() < 0.5 ? 'slime' : 'bat')
+    G.enemies.push({ x, y, kind, hp: kind === 'golem' ? 4 + depth : 2 + (depth >> 1), max: kind === 'golem' ? 4 + depth : 2 + (depth >> 1), hit: 0 })
+  }
+  G.items = []
+  for (let i = 0; i < 2; i++) {
+    const r = pick(rooms)
+    const x = r.x + rnd(r.w), y = r.y + rnd(r.h)
+    if (G.map[y][x] === '.' && !enemyAt(x, y) && !(x === G.px && y === G.py)) G.items.push({ x, y })
+  }
+  G.particles = []; G.floats = []
+  renderHud()
+}
+
+function renderHud() {
+  $('depth').textContent = G.depth
+  $('hp').textContent = '♥'.repeat(Math.max(0, G.hp)) + '·'.repeat(Math.max(0, G.maxHp - G.hp))
+  $('shield').textContent = '◆'.repeat(G.shield) + '◇'.repeat(3 - G.shield)
+  $('kills').textContent = G.kills
+  $('score').textContent = G.score
+}
+
+function burst(x, y, color, n = 14, speed = 3.4) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = speed * (0.4 + Math.random())
+    G.particles.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color })
+  }
+}
+function floatText(x, y, text, color) {
+  G.floats.push({ x: x + 0.5, y: y + 0.3, text, color, life: 1 })
+}
+
+function hitEnemy(e, dmg) {
+  e.hp -= dmg
+  e.hit = 1
+  G.shake = Math.min(10, G.shake + 4 + dmg)
+  burst(e.x, e.y, '#ff8a5c', 12 + dmg * 3)
+  floatText(e.x, e.y, '-' + dmg, '#ffd479')
+  if (e.hp <= 0) {
+    G.enemies = G.enemies.filter((o) => o !== e)
+    G.kills++
+    G.score += 5 + G.depth * 2
+    burst(e.x, e.y, '#ff5d6c', 26, 5)
+    log(`${e.kind} 처치! +${5 + G.depth * 2}`, '#ff9aa2')
+    renderHud()
+  }
+}
+
+function voiceAttack(score) {
+  const now = performance.now()
+  if (now - G.lastAttackAt < ATTACK_CD) return
+  G.lastAttackAt = now
+  G.attacks++
+  const dmg = Math.max(2, Math.min(7, 1 + Math.round((score - 60) / 7)))
+  let target = null, best = 1e9
+  for (const e of G.enemies) {
+    const d = Math.hypot(e.x - G.px, e.y - G.py)
+    if (d <= 6.0 && d < best) { best = d; target = e }
+  }
+  if (target) {
+    hitEnemy(target, dmg)
+    log(`ENGLISH! ${target.kind}에 ${dmg} 피해`, '#57e0a4')
+  } else {
+    const [dx, dy] = G.facing
+    let bx = G.px + dx, by = G.py + dy
+    let broke = false
+    for (let i = 0; i < 3; i++) {
+      if (G.map[by]?.[bx] === '#') {
+        G.map[by][bx] = '.'
+        burst(bx, by, '#9aa7bd', 20, 4.5)
+        G.shake = Math.min(10, G.shake + 6)
+        floatText(bx, by, 'BREAK', '#cfd8ff')
+        broke = true
+        break
+      }
+      bx += dx; by += dy
+    }
+    if (broke) log('벽을 부쉈다!', '#cfd8ff')
+    else { floatText(G.px, G.py, 'MISS', '#6f7b90'); log('허공에 외침… (몬스터/벽을 향해)', '#6f7b90') }
+  }
+  renderHud()
+}
+
+function voiceDefend() {
+  const now = performance.now()
+  if (now - G.lastDefendAt < DEFEND_CD) return
+  G.lastDefendAt = now
+  G.shields++
+  if (G.shield < 3) {
+    G.shield++
+    log('한국어 — 방어막 충전', '#6cc7ff')
+    burst(G.px, G.py, '#5cc8ff', 16, 3)
+  } else {
+    G.score += 2
+    log('방어막 최대 — 점수 +2', '#6cc7ff')
+  }
+  renderHud()
+}
+
+function movePlayer(dx, dy) {
+  if (!G.running || G.over) return
+  G.facing = [dx, dy]
+  const nx = G.px + dx, ny = G.py + dy
+  if (floorCell(nx, ny)) {
+    const e = enemyAt(nx, ny)
+    if (e) { // 몸으로 밀치기: 약한 피해
+      hitEnemy(e, 1)
+    } else {
+      G.px = nx; G.py = ny
+    }
+    const it = itemAt(nx, ny)
+    if (it) {
+      G.items = G.items.filter((o) => o !== it)
+      G.hp = Math.min(G.maxHp, G.hp + 2)
+      log('회복 물약 +2 HP', '#57e0a4')
+      renderHud()
+    }
+    if (G.px === G.stairs.x && G.py === G.stairs.y) {
+      G.score += 10 + G.depth * 3
+      log(`계단! ${G.depth + 1}층으로`, '#cfd8ff')
+      newFloor(G.depth + 1)
+      return
+    }
+    enemiesAct()
+    G.turn++
+  }
+}
+
+function enemiesAct() {
+  for (const e of G.enemies) {
+    const d = Math.hypot(e.x - G.px, e.y - G.py)
+    if (d > 8) continue
+    if (d <= 1.5) {
+      if (G.shield > 0) {
+        G.shield--
+        log(`${e.kind}의 공격 — 방어막이 막음`, '#6cc7ff')
+      } else {
+        G.hp -= e.kind === 'golem' ? 2 : 1
+        G.shake = 10
+        burst(G.px, G.py, '#ff5d6c', 14)
+        log(`${e.kind}에게 피해!`, '#ff9aa2')
+        if (G.hp <= 0) return gameOver()
+      }
+      renderHud()
+      continue
+    }
+    const dx = Math.sign(G.px - e.x), dy = Math.sign(G.py - e.y)
+    const opts = Math.abs(G.px - e.x) > Math.abs(G.py - e.y)
+      ? [[dx, 0], [0, dy]]
+      : [[0, dy], [dx, 0]]
+    for (const [mx, my] of opts) {
+      const nx = e.x + mx, ny = e.y + my
+      if (floorCell(nx, ny) && !enemyAt(nx, ny) && !(nx === G.px && ny === G.py)) {
+        e.x = nx; e.y = ny
+        break
+      }
+    }
+  }
+}
+
+function gameOver() {
+  G.over = true; G.running = false
+  $('overlay').classList.remove('hidden')
+  $('overlay').querySelector('h2').textContent = 'GAME OVER'
+  $('ovMsg').innerHTML = `도달 <b>${G.depth}층</b> · 처치 <b>${G.kills}</b> · 점수 <b>${G.score}</b>`
+  $('startBtn').textContent = '다시 시작 (R)'
+  log('게임 오버', '#ff7a85')
+}
+
+function reset() {
+  Object.assign(G, {
+    running: true, over: false, depth: 1, hp: 6, maxHp: 6, shield: 0,
+    kills: 0, score: 0, attacks: 0, shields: 0, particles: [], floats: [], shake: 0,
+    lastAttackAt: 0, lastDefendAt: 0, turn: 0,
+  })
+  newFloor(1)
+  $('overlay').classList.add('hidden')
+}
+
+// ---------- rendering ----------
+const COL = {
+  wall: '#26303f', wallTop: '#334054', floor: '#111823', grid: '#161f2b',
+  player: '#8be9fd', stairs: '#7ee787', potion: '#ff79c6',
+  slime: '#ff6b6b', bat: '#c792ea', golem: '#ffa657',
+}
+
+function draw() {
+  const now = performance.now()
+  ctx.save()
+  if (G.shake > 0.2) ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake)
+  ctx.clearRect(-20, -20, W * TILE + 40, H * TILE + 40)
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const t = G.map[y][x]
+      const px = x * TILE, py = y * TILE
+      if (t === '#') {
+        ctx.fillStyle = COL.wall; ctx.fillRect(px, py, TILE, TILE)
+        ctx.fillStyle = COL.wallTop; ctx.fillRect(px, py, TILE, 4)
+        ctx.strokeStyle = '#1b2431'; ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1)
+      } else {
+        ctx.fillStyle = COL.floor; ctx.fillRect(px, py, TILE, TILE)
+        ctx.strokeStyle = COL.grid; ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1)
+      }
+    }
+  }
+
+  // stairs
+  const sx = G.stairs.x * TILE, sy = G.stairs.y * TILE
+  ctx.fillStyle = COL.stairs
+  ctx.globalAlpha = 0.75 + 0.25 * Math.sin(now / 300)
+  ctx.font = 'bold 22px ui-monospace, monospace'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText('>', sx + TILE / 2, sy + TILE / 2 + 1)
+  ctx.globalAlpha = 1
+
+  for (const it of G.items) {
+    const px = it.x * TILE, py = it.y * TILE
+    ctx.fillStyle = COL.potion
+    ctx.beginPath(); ctx.arc(px + TILE / 2, py + TILE / 2, 6, 0, 7); ctx.fill()
+    ctx.fillStyle = '#ffd1ec'; ctx.beginPath(); ctx.arc(px + TILE / 2 - 2, py + TILE / 2 - 2, 2, 0, 7); ctx.fill()
+  }
+
+  for (const e of G.enemies) {
+    const px = e.x * TILE, py = e.y * TILE
+    const c = COL[e.kind] || '#ff6b6b'
+    ctx.save()
+    if (e.hit > 0) ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(now / 40))
+    ctx.fillStyle = c
+    ctx.shadowColor = c; ctx.shadowBlur = 10
+    if (e.kind === 'bat') {
+      ctx.beginPath(); ctx.moveTo(px + 6, py + 20); ctx.lineTo(px + 16, py + 8); ctx.lineTo(px + 26, py + 20); ctx.closePath(); ctx.fill()
+    } else if (e.kind === 'golem') {
+      ctx.fillRect(px + 6, py + 6, 20, 20)
+    } else {
+      ctx.beginPath(); ctx.arc(px + 16, py + 17, 9, 0, 7); ctx.fill()
+    }
+    ctx.restore()
+    // hp bar
+    const w = 24 * Math.max(0, e.hp) / e.max
+    ctx.fillStyle = '#2a1420'; ctx.fillRect(px + 4, py + 27, 24, 3)
+    ctx.fillStyle = c; ctx.fillRect(px + 4, py + 27, w, 3)
+  }
+
+  // player
+  const pxx = G.px * TILE, pyy = G.py * TILE
+  ctx.save()
+  ctx.shadowColor = COL.player; ctx.shadowBlur = 14
+  ctx.fillStyle = COL.player
+  ctx.beginPath(); ctx.arc(pxx + 16, pyy + 16, 10, 0, 7); ctx.fill()
+  ctx.fillStyle = '#04121a'
+  const [fx, fy] = G.facing
+  ctx.beginPath(); ctx.arc(pxx + 16 + fx * 4, pyy + 16 + fy * 4, 2.6, 0, 7); ctx.fill()
+  ctx.restore()
+  if (G.shield > 0) {
+    ctx.strokeStyle = 'rgba(92,200,255,0.7)'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.arc(pxx + 16, pyy + 16, 15 + Math.sin(now / 250) * 1.5, 0, 7); ctx.stroke()
+  }
+
+  for (const p of G.particles) {
+    ctx.globalAlpha = Math.max(0, p.life)
+    ctx.fillStyle = p.color
+    ctx.fillRect(p.x * TILE - 2, p.y * TILE - 2, 4, 4)
+  }
+  ctx.globalAlpha = 1
+  ctx.font = 'bold 14px ui-monospace, monospace'
+  ctx.textAlign = 'center'
+  for (const f of G.floats) {
+    ctx.globalAlpha = Math.max(0, f.life)
+    ctx.fillStyle = f.color
+    ctx.fillText(f.text, f.x * TILE, f.y * TILE - (1 - f.life) * 26)
+  }
+  ctx.globalAlpha = 1
+  ctx.restore()
+
+  // physics
+  for (const p of G.particles) { p.x += p.vx * 0.02; p.y += p.vy * 0.02; p.vx *= 0.94; p.vy *= 0.94; p.life -= 0.02 }
+  G.particles = G.particles.filter((p) => p.life > 0)
+  for (const f of G.floats) f.life -= 0.012
+  G.floats = G.floats.filter((f) => f.life > 0)
+  for (const e of G.enemies) e.hit = Math.max(0, e.hit - 0.05)
+  G.shake *= 0.86
+  requestAnimationFrame(draw)
+}
+requestAnimationFrame(draw)
+
+// ---------- input ----------
+const keys = {
+  ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+  w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
+  W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0],
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'r' || e.key === 'R') { if (!G.running) reset(); return }
+  const k = keys[e.key]
+  if (k) { e.preventDefault(); movePlayer(k[0], k[1]) }
+})
+
+// ---------- voice ----------
+let audio = null
+async function startVoice() {
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/live`)
+  ws.binaryType = 'arraybuffer'
+  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = () => rej(new Error('live 서버 연결 실패')) })
+  ws.send(JSON.stringify({ encoder: 'ecapa', windowSec: 1.0, hopMs: 100, gateDbfs: -45, vad: 'silero', minWindowSpeech: 0 }))
+  G.connected = true
+  $('conn').textContent = '연결됨'; $('conn').className = 'pill en'
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data)
+    if (msg.type === 'ready') { log('준비 완료 — 영어로 말해보세요', '#57e0a4'); return }
+    if (msg.type === 'idle') { G.vad = msg.vad ?? 0; $('vadNow').textContent = 'VAD ' + (msg.vad == null ? '—' : msg.vad.toFixed(2)); return }
+    if (msg.type !== 'point') return
+    const c = msg.coords?.[VIEW_KEY]
+    if (!c) return
+    const x = c[0]
+    const score = Math.round((1 - Math.max(-1, Math.min(1, x))) * 50)
+    G.lastX = x; G.lastScore = score; G.vad = msg.vad ?? 1
+    $('needle').style.left = ((Math.max(-1, Math.min(1, x)) + 1) / 2) * 100 + '%'
+    $('scoreNow').textContent = '점수 ' + score
+    $('vadNow').textContent = 'VAD ' + (msg.vad == null ? '—' : msg.vad.toFixed(2))
+    const v = $('verdict')
+    if (x <= ATTACK_X) {
+      v.textContent = 'ENGLISH'; v.className = 'pill en'
+      if (G.running && !G.over) voiceAttack(score)
+    } else if (x >= DEFEND_X) {
+      v.textContent = '한국어'; v.className = 'pill ko'
+      if (G.running && !G.over) voiceDefend()
+    } else { v.textContent = '중립'; v.className = 'pill' }
+  }
+  ws.onclose = () => { G.connected = false; $('conn').textContent = '연결 끊김'; $('conn').className = 'pill' }
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
+  const ctx = new AudioContext({ sampleRate: 16000 })
+  audio = ctx
+  const worklet = `
+class MicProcessor extends AudioWorkletProcessor {
+  constructor(o) { super(); this.buf = new Float32Array((o && o.processorOptions && o.processorOptions.chunk) || 1600); this.n = 0 }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0]
+    if (!ch) return true
+    for (let i = 0; i < ch.length; i++) {
+      this.buf[this.n++] = ch[i]
+      if (this.n === this.buf.length) {
+        const out = new Int16Array(this.buf.length)
+        for (let k = 0; k < out.length; k++) out[k] = Math.max(-1, Math.min(1, this.buf[k])) * 32767
+        this.port.postMessage(out.buffer, [out.buffer]); this.n = 0
+      }
+    }
+    return true
+  }
+}
+registerProcessor('mic-processor', MicProcessor)
+`
+  const url = URL.createObjectURL(new Blob([worklet], { type: 'text/javascript' }))
+  await ctx.audioWorklet.addModule(url)
+  URL.revokeObjectURL(url)
+  const src = ctx.createMediaStreamSource(stream)
+  const node = new AudioWorkletNode(ctx, 'mic-processor', { processorOptions: { chunk: 1600 } })
+  node.port.onmessage = (e) => { if (ws.readyState === 1) ws.send(e.data) }
+  src.connect(node)
+  node.connect(ctx.createGain()).connect(ctx.destination)
+}
+
+$('startBtn').onclick = async () => {
+  $('ovMsg').textContent = ''
+  if (!G.connected) {
+    try { await startVoice() } catch (e) { $('ovMsg').textContent = String(e.message || e); return }
+  }
+  reset()
+  log('1층 — 영어로 벽과 몬스터를 부숴라', '#cfd8ff')
+}
+
+window.__vb = G
+newFloor(1)
+G.running = false
+</script>
+</body>
+</html>
